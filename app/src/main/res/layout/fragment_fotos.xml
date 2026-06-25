@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:fillViewport="true"
+    android:isScrollContainer="true"
+    android:id="@+id/scrollFotos">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📸 EVIDENCIA FOTOGRÁFICA"
+            android:textColor="#33BB66"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnCamara"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:text="📷 SACAR FOTO"
+            android:backgroundTint="#2563EB"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnGaleria"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="🖼️ SELECCIONAR DE GALERÍA"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvContadorFotos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fotos adjuntas (0):"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/tvSinFotos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No hay fotos adjuntas"
+            android:textColor="#999999"
+            android:padding="24dp"
+            android:gravity="center"
+            android:visibility="visible" />
+
+        <GridLayout
+            android:id="@+id/gridFotos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="3"
+            android:layout_marginBottom="24dp">
+        </GridLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📝 OBSERVACIONES DEL OPERATIVO"
+            android:textColor="#33BB66"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- NUEVO: CAMPO DE OBSERVACIONES / DESCARGO -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/inputObservaciones"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="OBSERVACIONES"
+            app:helperText="Detalle aquí lo sucedido o el descargo del infractor"
+            android:layout_marginBottom="24dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etObservaciones"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="4"
+                android:gravity="top"
+                android:inputType="textMultiLine|textCapSentences"
+                android:imeOptions="actionDone" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#EEEEEE"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="3">
+            <Button
+                android:id="@+id/btnVolverFotos"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1"
+                android:text="VOLVER"
+                android:layout_marginEnd="8dp"/>
+            <Button
+                android:id="@+id/btnFinalizarActa"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="2"
+                android:text="SIGUIENTE:  ⮕"
+                android:backgroundTint="#33BB66"/>
+        </LinearLayout>
+
+        <!-- Un espacio extra al final ayuda mucho en formularios largos -->
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="80dp" />
+    </LinearLayout>
+</ScrollView>

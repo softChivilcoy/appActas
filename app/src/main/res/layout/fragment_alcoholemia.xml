@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollAlcoholemia"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚖️ MEDIDAS PREVENTIVAS"
+            android:textColor="#33BB66"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 1. CHECK DE ALCOHOLEMIA -->
+        <CheckBox
+            android:id="@+id/checkHacerTest"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Realizar Test de Alcoholemia"
+            android:textSize="15sp"/>
+
+        <!-- 2. CARD DE TEST (Ubicado inmediatamente abajo de su CheckBox correspondiente) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTest"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="visible"
+            app:cardBackgroundColor="#FFF0F0"
+            app:strokeColor="#FFCDD2"
+            app:strokeWidth="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DATOS DEL ALCOHOLÍMETRO"
+                    android:textColor="#B71C1C"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Marca"
+                        android:layout_marginEnd="4dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAlcoMarca"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapCharacters"
+                            android:imeOptions="actionNext"
+                            android:singleLine="true"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Modelo">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAlcoModelo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapCharacters"
+                            android:singleLine="true"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="N° de Serie"
+                    android:layout_marginTop="8dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etAlcoSerie"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Cód. de Aprobación"
+                    android:layout_marginTop="8dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etAlcoAprobacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#FFCDD2"
+                    android:layout_marginVertical="16dp"/>
+
+                <!-- CAMBIO: Se eliminó la pipeta y el Resultado toma el ancho completo -->
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Resultado (grs/l)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etResultado"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="#B71C1C"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <CheckBox
+                    android:id="@+id/checkPlanillaMedica"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="¿Se Adjunta Planilla Medica?"
+                    android:layout_marginTop="12dp"
+                    android:textSize="15sp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 3. RESTO DE LAS MEDIDAS PREVENTIVAS -->
+        <CheckBox
+            android:id="@+id/checkRetencionVehiculo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Retención de Vehículo"
+            android:textSize="15sp" />
+
+        <CheckBox
+            android:id="@+id/checkRetencionLicencia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Retención de Licencia de Conducir"
+            android:textSize="15sp" />
+
+        <CheckBox
+            android:id="@+id/checkAnimal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Retención de Animal"
+            android:textSize="15sp" />
+
+        <!-- BOTONES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="3"
+            android:layout_marginTop="32dp">
+            <Button
+                android:id="@+id/btnVolverAlco"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1"
+                android:text="VOLVER"/>
+            <Button
+                android:id="@+id/btnSiguienteAlco"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="2"
+                android:text="SIGUIENTE:  ⮕"
+                android:backgroundTint="#33BB66"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="80dp" />
+    </LinearLayout>
+</ScrollView>

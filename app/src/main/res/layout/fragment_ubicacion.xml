@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollUbicacion"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    tools:context=".UbicacionFragment">
+
+    <LinearLayout
+        android:id="@+id/containerUbicacion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tvTituloPaso1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PASO 1: Ubicación del Acta"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:layout_marginBottom="20dp"/>
+
+    <LinearLayout
+        android:id="@+id/layoutOperativoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="¿ES UN OPERATIVO?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#33BB66" />
+
+        <TextView
+            android:id="@+id/tvEstadOperativo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#777777"
+            android:layout_marginEnd="8dp"/>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swOperativo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+        <!-- NUEVO: Bloque Ejido Urbano -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cvEjidoUrbano"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#F5F5F5"
+            app:strokeColor="#CCCCCC"
+            app:strokeWidth="1dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="4dp">
+
+                <!-- Texto de la izquierda (Ocupa el 35% del ancho) -->
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.35"
+                    android:text="EJIDO URBANO"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:gravity="center_vertical"
+                    android:paddingStart="4dp" />
+
+                <!-- Contenedor de Radios (Ocupa el 65% restante) -->
+                <RadioGroup
+                    android:id="@+id/rgEjidoUrbano"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.55"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+
+                    <RadioButton
+                        android:id="@+id/rbEjidoDentro"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="DENTRO"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+
+                    <RadioButton
+                        android:id="@+id/rbEjidoFuera"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="FUERA"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Domicilio (Calle / Avenida)"
+            android:layout_marginBottom="16dp"
+            app:startIconDrawable="@android:drawable/ic_menu_directions"
+            app:boxStrokeColor="#33BB66"
+            app:hintTextColor="#33BB66">
+
+            <AutoCompleteTextView
+                android:id="@+id/acCalle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapWords"
+                android:completionThreshold="1"
+                android:padding="16dp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Campo de Altura/Número (Siempre visible, clave para Catastro y multas) -->
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Altura / Nro"
+            android:layout_marginBottom="16dp"
+            app:boxStrokeColor="#33BB66"
+            app:hintTextColor="#33BB66">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etAlturaUbicacion"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Agregar depto, piso o referencias"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#33BB66" />
+
+            <TextView
+                android:id="@+id/tvEstadoDetalle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#777777"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- Switch para activar detalles adicionales -->
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swDetalleUbicacion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+        </LinearLayout>
+
+        <!-- Contenedor Oculto (Se muestra solo si el switch se activa) -->
+        <LinearLayout
+            android:id="@+id/layoutCamposDetalleUbicacion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"
+            tools:visibility="visible">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Piso / Departamento / Oficina"
+                android:layout_marginBottom="8dp"
+                app:boxStrokeColor="#33BB66"
+                app:hintTextColor="#33BB66">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etDeptoUbicacion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Detalles de referencia (Ej: Entre calles, local lila, etc.)"
+                app:boxStrokeColor="#33BB66"
+                app:hintTextColor="#33BB66">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etReferenciaUbicacion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lines="2"
+                    android:gravity="top"
+                    android:inputType="textMultiLine" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
+
+        <!-- GPS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvGpsStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📍 ESTADO DEL GPS"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <ImageButton
+                android:id="@+id/btnRefrescarGps"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_popup_sync"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#FF9800" />
+
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="24dp"
+            app:strokeColor="#33BB66"
+            app:strokeWidth="2dp">
+
+            <org.osmdroid.views.MapView
+                android:id="@+id/mapView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="center"
+                android:translationY="-14dp"
+                android:src="@android:drawable/ic_menu_mylocation"
+                app:tint="#FF3333" />
+
+           <!-- <View
+                android:id="@+id/mapView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                 android:background="#DDDDDD"/>
+                -->
+        <!--<com.google.android.gms.maps.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />-->
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Este View con peso 1 empuja al botón hacia abajo en pantallas grandes -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnSiguienteUbicacion"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:text="CONFIRMAR UBICACIÓN Y CONTINUAR"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#33BB66"
+            app:cornerRadius="12dp"
+            android:elevation="8dp"/>
+
+    </LinearLayout>
+</ScrollView>

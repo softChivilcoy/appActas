@@ -1,0 +1,14 @@
+# Archivos locales de configuración del IDE y entorno
+local.properties
+.DS_Store
+
+# Carpetas de compilación y caché de Gradle / Android Studio
+.gradle/
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Excluir toda la configuración del IDE (evita conflictos de ventanas o rutas tuyas)
+.idea/
+*.iml

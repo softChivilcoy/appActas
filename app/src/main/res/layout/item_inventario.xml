@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="8dp"
+    android:weightSum="10">
+
+    <TextView
+        android:id="@+id/tvNombreItem"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="5.3"
+        android:text="Nombre del Item"
+        android:textSize="18sp"
+        android:textColor="#333333" />
+
+    <CheckBox
+        android:id="@+id/checkPresente"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:checked="true" />
+
+    <RadioGroup
+        android:id="@+id/rgEstado"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="4"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/rbBueno"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="B"
+            android:buttonTint="#33BB66"
+            android:textColor="#33BB66"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbMalo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="M"
+            android:buttonTint="#B71C1C"
+            android:textColor="#B71C1C"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbSD"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="S/D"
+            android:buttonTint="#757575"
+            android:textColor="#757575"
+            android:textSize="12sp" />
+    </RadioGroup>
+</LinearLayout>

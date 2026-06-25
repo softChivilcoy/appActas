@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <!-- Cabecera con Título y Botón Nueva Acta -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1A237E"
+        android:padding="12dp"
+        android:elevation="4dp">
+
+        <TextView
+            android:id="@+id/tvTituloHoja"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_alignParentStart="true"
+            android:text="HOJA DE RUTA"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNuevaActa"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text="+ NUEVA ACTA"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_add"
+            app:backgroundTint="#3F51B5"
+            app:iconTint="@android:color/white"
+            android:textColor="@android:color/white"
+            app:cornerRadius="8dp" />
+    </RelativeLayout>
+
+    <!-- Lista de Actas -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvHojaRuta"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="8dp"
+        android:clipToPadding="false" />
+
+</LinearLayout>

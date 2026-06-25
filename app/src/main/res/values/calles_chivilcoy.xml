@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="calles_chivilcoy_list">
+        <item>11 DE SEPTIEMBRE (21)</item>
+        <item>25 DE MAYO (53)</item>
+        <item>9 DE JULIO (53)</item>
+        <item>A. BARDI (21)</item>
+        <item>A. BERMEJO (88)</item>
+        <item>A. BONDUEL (8)</item>
+        <item>A. ORTELLI (86)</item>
+        <item>A. PALACIOS (100)</item>
+        <item>A. PEÑALOZA (20)</item>
+        <item>A. PIERRETTI (116)</item>
+        <item>A. VIGNALE (112)</item>
+        <item>ACCESO EVA DUARTE DE PERÓN</item>
+        <item>ACCESO JUAN DOMINGO PERÓN (68)</item>
+        <item>ACCESO NÉSTOR KIRCHNER (33)</item>
+        <item>ACCESO RAÚL ALFONSIN</item>
+        <item>ALEJANDRO BÁNCORA (48)</item>
+        <item>ALEJANDRO MATHUS</item>
+        <item>ALMAFUERTE (58)</item>
+        <item>ALMIRANTE BROWN (60)</item>
+        <item>ALSINA (37)</item>
+        <item>ALVEAR (47)</item>
+        <item>ANASTASIO CHAVEZ (80)</item>
+        <item>ANGEL GRECO (74)</item>
+        <item>ANTÁRTIDA ARGENTINA (25)</item>
+        <item>ARENALES (63)</item>
+        <item>ARGENTINO GALVÁN (78)</item>
+        <item>AUGUSTO KRAUSSE (25)</item>
+        <item>AV. 22 DE OCTUBRE (69)</item>
+        <item>AV. 3 DE FEBRERO (32)</item>
+        <item>AV. 9 (SECCIÓN 1)</item>
+        <item>AV. 9 (SECCIÓN 4)</item>
+        <item>AV. A. TSCHIFEELY</item>
+        <item>AV. AVELLANEDA (68)</item>
+        <item>AV. BERNARDO DE IRIGOYEN (33)</item>
+        <item>AV. CALIXTO CALDERÓN (50)</item>
+        <item>AV. CARLOS GARDEL (17)</item>
+        <item>AV. CEBALLOS (51)</item>
+        <item>AV. CECILIO LAMÓN (SECCIÓN 2)</item>
+        <item>AV. CECILIO LAMÓN (SECCIÓN 3)</item>
+        <item>AV. DE LA DEMOCRACIA (16)</item>
+        <item>AV. DE LA TRADICIÓN (50)</item>
+        <item>AV. DE LOS FUNDADORES</item>
+        <item>AV. DE LOS FUNDADORES (114)</item>
+        <item>AV. DE TOMASO (51)</item>
+        <item>AV. DIARIO LA RAZÓN (85)</item>
+        <item>AV. DR. CECILIO LAMÓN (93)</item>
+        <item>AV. DR. CECILIO LAMÓN (93)</item>
+        <item>AV. ECHEVERRÍA (69)</item>
+        <item>AV. FEDERICO SOÁREZ (50)</item>
+        <item>AV. FRANCISCO LABORDE (84)</item>
+        <item>AV. GATO Y MANCHA (17)</item>
+        <item>AV. GÚEMES (33)</item>
+        <item>AV. HIJAS DE SAN JOSÉ (50)</item>
+        <item>AV. JORGE NEWBERY</item>
+        <item>AV. JORGE NEWBERY (92)</item>
+        <item>AV. JOSÉ LEÓN SUÁREZ (50)</item>
+        <item>AV. JUAN MANUEL DE ROSAS</item>
+        <item>AV. JUAN MANUEL DE ROSAS (92)</item>
+        <item>AV. LISANDRO DE LA TORRE (85)</item>
+        <item>AV. MITRE (51)</item>
+        <item>AV. MONSEÑOR DE ANDREA (16)</item>
+        <item>AV. ORTIZ (68)</item>
+        <item>AV. RAMÓN CARRILLO (93)</item>
+        <item>AV. SARMIENTO (51)</item>
+        <item>AV. URQUIZA (32)</item>
+        <item>AV. VILLARINO (50)</item>
+        <item>AYACUCHO (66)</item>
+        <item>BALCARCE (57)</item>
+        <item>BARRIO PYM</item>
+        <item>BARRIO SAN FRANCISCO</item>
+        <item>BARTOLOMÉ BENÍTEZ (76)</item>
+        <item>BARTOLOMÉ MITRE (76)</item>
+        <item>BASSO DASTUGUE (71)</item>
+        <item>BECERA (108)</item>
+        <item>BELGRANO (52)</item>
+        <item>BENÍTEZ (28)</item>
+        <item>BIEDMA (67)</item>
+        <item>BOLIVAR (47)</item>
+        <item>BOMBEROS VOLUNTARIOS (72)</item>
+        <item>BOQUERÓN (36)</item>
+        <item>BORIS ELKIN (SAN FRANCISCO)</item>
+        <item>BOUCHARDO (41)</item>
+        <item>BRANDSEN (60)</item>
+        <item>C. FAJARDO (86)</item>
+        <item>C. GUZMÁN (90)</item>
+        <item>C. NAMUNCURÁ (88)</item>
+        <item>C. VILLAMIL (90)</item>
+        <item>CALLE 1 (SECCIÓN 1)</item>
+        <item>CALLE 1 (SECCIÓN 4)</item>
+        <item>CALLE 10 (SECCIÓN 1)</item>
+        <item>CALLE 10 (SECCIÓN 2)</item>
+        <item>CALLE 100 (BARRIO OBRERO)</item>
+        <item>CALLE 100 (SECCIÓN 4)</item>
+        <item>CALLE 101 (SECCIÓN 3)</item>
+        <item>CALLE 102 (SECCIÓN 3)</item>
+        <item>CALLE 103 (SECCIÓN 3)</item>
+        <item>CALLE 104 (SECCIÓN 3)</item>
+        <item>CALLE 105 (SECCIÓN 3)</item>
+        <item>CALLE 106 (SECCIÓN 3)</item>
+        <item>CALLE 107 (SECCIÓN 3)</item>
+        <item>CALLE 109 (SECCIÓN 3)</item>
+        <item>CALLE 11 (SECCIÓN 1)</item>
+        <item>CALLE 11 (SECCIÓN 4)</item>
+        <item>CALLE 110 (SECCIÓN 4)</item>
+        <item>CALLE 111 (SECCIÓN 2)</item>
+        <item>CALLE 111 (SECCIÓN 3)</item>
+        <item>CALLE 112 (SECCIÓN 3)</item>
+        <item>CALLE 113 (SECCIÓN 2)</item>
+        <item>CALLE 113 (SECCIÓN 3)</item>
+        <item>CALLE 114 (SECCIÓN 3)</item>
+        <item>CALLE 115 (SECCIÓN 2)</item>
+        <item>CALLE 115 (SECCIÓN 3)</item>
+        <item>CALLE 116 (SECCIÓN 3)</item>
+        <item>CALLE 117 (SECCIÓN 2)</item>
+        <item>CALLE 117 (SECCIÓN 3)</item>
+        <item>CALLE 118 (SECCIÓN 3)</item>
+        <item>CALLE 119 (SECCIÓN 2)</item>
+        <item>CALLE 119 (SECCIÓN 3)</item>
+        <item>CALLE 12 (SECCIÓN 1)</item>
+        <item>CALLE 12 (SECCIÓN 2)</item>
+        <item>CALLE 120 (SECCIÓN 3)</item>
+        <item>CALLE 120 (SECCIÓN 4)</item>
+        <item>CALLE 121 (SECCIÓN 2)</item>
+        <item>CALLE 121 (SECCIÓN 3)</item>
+        <item>CALLE 123 (SECCIÓN 2)</item>
+        <item>CALLE 123 (SECCIÓN 3)</item>
+        <item>CALLE 13 (SECCIÓN 1)</item>
+        <item>CALLE 13 (SECCIÓN 4)</item>
+        <item>CALLE 14 (SECCIÓN 1)</item>
+        <item>CALLE 14 (SECCIÓN 2)</item>
+        <item>CALLE 15 (BARRIO JOVEN)</item>
+        <item>CALLE 15 (SECCIÓN 4)</item>
+        <item>CALLE 16 (SECCIÓN 2)</item>
+        <item>CALLE 2 (SECCIÓN 1)</item>
+        <item>CALLE 2 (SECCIÓN 2)</item>
+        <item>CALLE 23 (SECCIÓN 4)</item>
+        <item>CALLE 3 (SECCIÓN 1)</item>
+        <item>CALLE 3 (SECCIÓN 4)</item>
+        <item>CALLE 4 (SECCIÓN 1)</item>
+        <item>CALLE 4 (SECCIÓN 2)</item>
+        <item>CALLE 5 (SECCIÓN 4)</item>
+        <item>CALLE 500 (SECCIÓN 1)</item>
+        <item>CALLE 500 (SECCIÓN 2)</item>
+        <item>CALLE 502 (SECCIÓN 1)</item>
+        <item>CALLE 502 (SECCIÓN 2)</item>
+        <item>CALLE 504 (SECCIÓN 1)</item>
+        <item>CALLE 504 (SECCIÓN 2)</item>
+        <item>CALLE 506 (SECCIÓN 1)</item>
+        <item>CALLE 506 (SECCIÓN 2)</item>
+        <item>CALLE 508 (SECCIÓN 1)</item>
+        <item>CALLE 508 (SECCIÓN 2)</item>
+        <item>CALLE 510 (SECCIÓN 1)</item>
+        <item>CALLE 510 (SECCIÓN 2)</item>
+        <item>CALLE 512 (SECCIÓN 1)</item>
+        <item>CALLE 512 (SECCIÓN 2)</item>
+        <item>CALLE 514 (SECCIÓN 1)</item>
+        <item>CALLE 514 (SECCIÓN 2)</item>
+        <item>CALLE 516 (SECCIÓN 1)</item>
+        <item>CALLE 516 (SECCIÓN 2)</item>
+        <item>CALLE 518 (SECCIÓN 1)</item>
+        <item>CALLE 518 (SECCIÓN 2)</item>
+        <item>CALLE 520 (SECCIÓN 1)</item>
+        <item>CALLE 520 (SECCIÓN 2)</item>
+        <item>CALLE 522 (SECCIÓN 1)</item>
+        <item>CALLE 522 (SECCIÓN 2)</item>
+        <item>CALLE 524 (SECCIÓN 1)</item>
+        <item>CALLE 524 (SECCIÓN 2)</item>
+        <item>CALLE 526 (SECCIÓN 1)</item>
+        <item>CALLE 526 (SECCIÓN 2)</item>
+        <item>CALLE 528 (SECCIÓN 1)</item>
+        <item>CALLE 528 (SECCIÓN 2)</item>
+        <item>CALLE 530 (SECCIÓN 1)</item>
+        <item>CALLE 530 (SECCIÓN 2)</item>
+        <item>CALLE 532 (SECCIÓN 1)</item>
+        <item>CALLE 532 (SECCIÓN 1)</item>
+        <item>CALLE 532 (SECCIÓN 2)</item>
+        <item>CALLE 534 (SECCIÓN 1)</item>
+        <item>CALLE 534 (SECCIÓN 2)</item>
+        <item>CALLE 536 (SECCIÓN 1)</item>
+        <item>CALLE 536 (SECCIÓN 2)</item>
+        <item>CALLE 538 (SECCIÓN 1)</item>
+        <item>CALLE 538 (SECCIÓN 2)</item>
+        <item>CALLE 540 (SECCIÓN 1)</item>
+        <item>CALLE 540 (SECCIÓN 2)</item>
+        <item>CALLE 542  (SECCIÓN 2)</item>
+        <item>CALLE 542 (SECCIÓN 1)</item>
+        <item>CALLE 544 (SECCIÓN 1)</item>
+        <item>CALLE 544 (SECCIÓN 2)</item>
+        <item>CALLE 546 (SECCIÓN 1)</item>
+        <item>CALLE 546 (SECCIÓN 2)</item>
+        <item>CALLE 548 (SECCIÓN 1)</item>
+        <item>CALLE 548 (SECCIÓN 2)</item>
+        <item>CALLE 550 (SECCIÓN 1)</item>
+        <item>CALLE 550 (SECCIÓN 2)</item>
+        <item>CALLE 552 (SECCIÓN 1)</item>
+        <item>CALLE 552 (SECCIÓN 2)</item>
+        <item>CALLE 554 (SECCIÓN 1)</item>
+        <item>CALLE 554 (SECCIÓN 2)</item>
+        <item>CALLE 556 (SECCIÓN 1)</item>
+        <item>CALLE 556 (SECCIÓN 2)</item>
+        <item>CALLE 558 (SECCIÓN 1)</item>
+        <item>CALLE 558 (SECCIÓN 2)</item>
+        <item>CALLE 560 (SECCIÓN 1)</item>
+        <item>CALLE 560 (SECCIÓN 2)</item>
+        <item>CALLE 562 (SECCIÓN 1)</item>
+        <item>CALLE 562 (SECCIÓN 2)</item>
+        <item>CALLE 564 (SECCIÓN 1)</item>
+        <item>CALLE 564 (SECCIÓN 2)</item>
+        <item>CALLE 566 (SECCIÓN 1)</item>
+        <item>CALLE 566 (SECCIÓN 2)</item>
+        <item>CALLE 568 (SECCIÓN 1)</item>
+        <item>CALLE 568 (SECCIÓN 2)</item>
+        <item>CALLE 570 (SECCIÓN 1)</item>
+        <item>CALLE 570 (SECCIÓN 2)</item>
+        <item>CALLE 572 (SECCIÓN 1)</item>
+        <item>CALLE 572 (SECCIÓN 2)</item>
+        <item>CALLE 574 (SECCIÓN 1)</item>
+        <item>CALLE 574 (SECCIÓN 2)</item>
+        <item>CALLE 576 (SECCIÓN 1)</item>
+        <item>CALLE 576 (SECCIÓN 2)</item>
+        <item>CALLE 578 (SECCIÓN 1)</item>
+        <item>CALLE 578 (SECCIÓN 2)</item>
+        <item>CALLE 580 (SECCIÓN 1)</item>
+        <item>CALLE 580 (SECCIÓN 2)</item>
+        <item>CALLE 582 (SECCIÓN 1)</item>
+        <item>CALLE 582 (SECCIÓN 2)</item>
+        <item>CALLE 584 (SECCIÓN 1)</item>
+        <item>CALLE 584 (SECCIÓN 2)</item>
+        <item>CALLE 586 (SECCIÓN 1)</item>
+        <item>CALLE 586 (SECCIÓN 2)</item>
+        <item>CALLE 588 (SECCIÓN 1)</item>
+        <item>CALLE 588 (SECCIÓN 2)</item>
+        <item>CALLE 590 (SECCIÓN 1)</item>
+        <item>CALLE 590 (SECCIÓN 2)</item>
+        <item>CALLE 6 (SECCIÓN 1)</item>
+        <item>CALLE 6 (SECCIÓN 2)</item>
+        <item>CALLE 7 (SECCIÓN 1)</item>
+        <item>CALLE 7 (SECCIÓN 4)</item>
+        <item>CALLE 73 (SECCIÓN 2)</item>
+        <item>CALLE 73 (SECCIÓN 3)</item>
+        <item>CALLE 74 (SECCIÓN 3)</item>
+        <item>CALLE 74 (SECCIÓN 4)</item>
+        <item>CALLE 75 (SECCIÓN 2)</item>
+        <item>CALLE 75 (SECCIÓN 3)</item>
+        <item>CALLE 76 (SECCIÓN 4)</item>
+        <item>CALLE 8 (SECCIÓN 1)</item>
+        <item>CALLE 8 (SECCIÓN 2)</item>
+        <item>CALLE 94 (SECCIÓN 4)</item>
+        <item>CALLE 95 (SECCIÓN 2)</item>
+        <item>CALLE 97 (SECCIÓN 2)</item>
+        <item>CALLE 98 (BARRIO OBRERO)</item>
+        <item>CALLE 99 (SECCIÓN 3)</item>
+        <item>CARLOS ORTÍZ (75)</item>
+        <item>CAROLINA LORENZINI (109)</item>
+        <item>CASTELLI (64)</item>
+        <item>CAYETANO CASTRO (76)</item>
+        <item>CECILIA GRIERSON (99)</item>
+        <item>CERILLO DE LA AVERÍA (52)</item>
+        <item>CHACABUCO (54)</item>
+        <item>COLÓN (42)</item>
+        <item>COMANDANTE LUIS PIEDRA BUENA ( 91)</item>
+        <item>CONESA (27)</item>
+        <item>CORONEL SUÁREZ (62)</item>
+        <item>CRUCERO GENERAL BELGRANO (79)</item>
+        <item>CUARTEL</item>
+        <item>D. ROSITTO (23)</item>
+        <item>DE LOS INMIGRANTES</item>
+        <item>DE LOS INMIGRANTES (77)</item>
+        <item>DEAN FUNES (43)</item>
+        <item>DIAGONAL AURORA DE SANTILLI</item>
+        <item>DIAGONAL BORGES (SECCIÓN 1)</item>
+        <item>DIAGONAL EVITA (SECCIÓN 2)</item>
+        <item>DIAGONAL SANTILLI (SECCIÓN 4)</item>
+        <item>DISCÉPOLO (SECCIÓN 3)</item>
+        <item>DORREGO (62)</item>
+        <item>DR. ANTONIO NOVARO (83)</item>
+        <item>DR. FRANCISCO VIÑAS (97)</item>
+        <item>DR. JOSÉ MORAS (95)</item>
+        <item>DR. ROGELIO VENTEMIGLIA (79)</item>
+        <item>DR. SANTIAGO FORNOS (81)</item>
+        <item>E. MARRONE (15)</item>
+        <item>EL RESERO (7)</item>
+        <item>EL TROPERO (5)</item>
+        <item>EMILIO AYARZA (22)</item>
+        <item>EMILIO BALLESTER (SECCIÓN 1)</item>
+        <item>EMILIO MITRE (40)</item>
+        <item>ENRIQUE SANTOS DISCÉPOLO</item>
+        <item>ESPAÑA (77)</item>
+        <item>ESTANISLAO LÓPEZ (14)</item>
+        <item>EUSTAQUIA SÁNCHEZ (105)</item>
+        <item>EUSTAQUIA SÁNCHEZ (BARRIO ADAS)</item>
+        <item>F. GONZÁLEZ (96)</item>
+        <item>F. RAMÍREZ (18)</item>
+        <item>FELIPE VARELA (12)</item>
+        <item>FLORENTINO AMEGHINO (52)</item>
+        <item>FRANCIA (75)</item>
+        <item>FRANCISCO FAVERIO (46)</item>
+        <item>GABRIEL RAMIREZ (74)</item>
+        <item>GARIBALDI (37)</item>
+        <item>GENERAL FRÍAS (45)</item>
+        <item>GENERAL PAZ (46)</item>
+        <item>GENERAL PINTO (59)</item>
+        <item>GENERAL PIRÁN (65)</item>
+        <item>GENERAL RODRIGUEZ (45)</item>
+        <item>GOROSTIAGA (24)</item>
+        <item>GREGORIA MATORRAS (48)</item>
+        <item>GREGORIO MOLINA (78)</item>
+        <item>GRITO DE ALCORTA (110)</item>
+        <item>GUIDO (35)</item>
+        <item>H. LÓPEZ (118)</item>
+        <item>HENRY BELL (24)</item>
+        <item>HERMANA PIEDAD (55)</item>
+        <item>HERMANOS SUÁREZ</item>
+        <item>HIJAS DE LA MISERICORDIA (53)</item>
+        <item>HIPÓLITO YRIGOYEN (48)</item>
+        <item>HUMBERTO PRIMO (31)</item>
+        <item>INDACOCHEA (22)</item>
+        <item>INDIRA GANDHI (103)</item>
+        <item>INDUSTRIA (31)</item>
+        <item>IRLANDA (91)</item>
+        <item>ITALIA (73)</item>
+        <item>ITUZAINGÓ (39)</item>
+        <item>J. B. BUSTOS (14)</item>
+        <item>J. F. IBARRA (12)</item>
+        <item>J. F. QUIROGA (20)</item>
+        <item>J. G. ARTIGAS (18)</item>
+        <item>JAURECHE (SECCIÓN 3)</item>
+        <item>JOSÉ HERNÁNDEZ (SECCIÓN 1)</item>
+        <item>JOSÉ INGENIEROS (31)</item>
+        <item>JOSÉ SCHIAFFINO (SECCIÓN 1)</item>
+        <item>JUAN BAUSTISTA ALBERDI (61)</item>
+        <item>JUAN GÚMEZ (106)</item>
+        <item>JUANA MANSO (71)</item>
+        <item>JUNÍN</item>
+        <item>JUNÍN (66)</item>
+        <item>LA RICA (28)</item>
+        <item>LAMADRID (59)</item>
+        <item>LAPRIDA (64)</item>
+        <item>LAS ACACIAS (SAN FRANCISCO)</item>
+        <item>LAS ARAUCARIAS (SAN FRANCISCO)</item>
+        <item>LAS HERAS (56)</item>
+        <item>LAVALLE (55)</item>
+        <item>LEANDRO N . ALEM (58)</item>
+        <item>LÍBANO (89)</item>
+        <item>LOS ABEDULES (SAN FRANCISCO)</item>
+        <item>LOS ÁLAMOS (SAN FRANCISCO)</item>
+        <item>LOS ALERCES (SAN FRANCISCO)</item>
+        <item>LOS AROMOS (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS CEDROS (SAN FRANSCISCO)</item>
+        <item>LOS CEIBOS (SAN FRANCISCO)</item>
+        <item>LOS CIPRECES (SAN FRANCISCO)</item>
+        <item>LOS FOMENTISTAS (94)</item>
+        <item>LOS JAZMINES</item>
+        <item>LOS JAZMINES (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS LIRIOS (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS OLIVOS (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS OLMOS (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS PARAÍSOS (SAN FRANCISCO)</item>
+        <item>LOS PINOS (SAN FRANCISCO)</item>
+        <item>LOS QUEBRACHOS (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS ROBLES (SAN FRANCISCO)</item>
+        <item>LOS SAUCES (SAN FRANCISCO)</item>
+        <item>LOS TULIPANES (BARRIO SAN JOAQUÍN)</item>
+        <item>LOS ZORZALES</item>
+        <item>LUIS A. MOHR (42)</item>
+        <item>MAESTRO ARGENTINO (44)</item>
+        <item>MAIPÚ (54)</item>
+        <item>MALVINAS ARGENTINAS (81)</item>
+        <item>MANUEL LÓPEZ (72)</item>
+        <item>MANZI (SECCIÓN 3)</item>
+        <item>MAURICIO BIRABENT (19)</item>
+        <item>MIGUÉL CALDERÓN (61)</item>
+        <item>MONSEÑOR ENRIQUE ANGELELLI (98)</item>
+        <item>MONSEÑOR LUIS CONTI (114)</item>
+        <item>MONTEAGUDO (29)</item>
+        <item>MOQUEHUÁ (30)</item>
+        <item>MORENO (49)</item>
+        <item>NECOCHEA (55)</item>
+        <item>OLAVARRÍA (34)</item>
+        <item>P. MEDINA (102)</item>
+        <item>PABLO ALBARRACÍN</item>
+        <item>PADRE ZACARÍAS (73)</item>
+        <item>PALEMÓN HUERGO (30)</item>
+        <item>PASAJE (BARRIO BOMBEROS)</item>
+        <item>PASAJE E. DICEPOLO</item>
+        <item>PASAJE ESTRADA (SECCIÓN 3)</item>
+        <item>PASAJE FOURNIER</item>
+        <item>PASAJE MARECHAL (SECCIÓN 3)</item>
+        <item>PASCUAL CONTURSI (19)</item>
+        <item>PASCUAL GRISOLÍA (67)</item>
+        <item>PASO (57)</item>
+        <item>PASO DE LA PATRIA (36)</item>
+        <item>PASTOR OBLIGADO (9)</item>
+        <item>PAULA ALBARRACÍN (101)</item>
+        <item>PAUNERO (27)</item>
+        <item>PEATONAL (BARRIO JOVEN)</item>
+        <item>PEATONAL (BARRIO PYN)</item>
+        <item>PEDRO SAN MAURO (82)</item>
+        <item>PELLEGRINI (48)</item>
+        <item>POLONIA (87)</item>
+        <item>PORTUGAL (83)</item>
+        <item>PREBSTERO M. BADFANO (98)</item>
+        <item>PRIMERA JUNTA (70)</item>
+        <item>PRINGLES (56)</item>
+        <item>PROF. LUIS MARZIK (5)</item>
+        <item>PROTESTA DE LOS LABRADORES (9)</item>
+        <item>PUEYRREDON (46)</item>
+        <item>RAMÓN BIAUS (26)</item>
+        <item>RÍO JURAMENTO (39)</item>
+        <item>RIVADAVIA (49)</item>
+        <item>RODRIGUEZ PEÑA (65)</item>
+        <item>ROQUE A. MACEIRA (80)</item>
+        <item>ROSETTI (41)</item>
+        <item>RUMANIA (89)</item>
+        <item>RUTA </item>
+        <item>RUTA 30</item>
+        <item>RUTA 5</item>
+        <item>RUTA 51</item>
+        <item>SAAVEDRA (63)</item>
+        <item>SALTA (38)</item>
+        <item>SAN LORENZO (44)</item>
+        <item>SAN MARTÍN (52)</item>
+        <item>SAN SEBASTIÁN (26)</item>
+        <item>SANTIAGO FORNOS</item>
+        <item>SARMIENTO</item>
+        <item>SCALABRINI ORTÍZ (108)</item>
+        <item>SIRIA (87)</item>
+        <item>SOLDADOS DE MALVINAS (96)</item>
+        <item>SOLER (34)</item>
+        <item>SOR JUANA INÉS DE LA CRUZ (107)</item>
+        <item>SUIPACHA (44)</item>
+        <item>TUCUMÁN (38)</item>
+        <item>V. S. SARAVIA (104)</item>
+        <item>VALENTÍN CORÍA (70)</item>
+        <item>VALENTÍN REBOLLO (82)</item>
+        <item>VÍA MENFI</item>
+        <item>VIAMONTE (29)</item>
+        <item>VICENTE LÓPEZ (43)</item>
+        <item>VICENTE LOVEIRA (42)</item>
+        <item>VILLARINO</item>
+        <item>YAPEYÚ (40)</item>
+        <item>ZAPIOLA (35)</item>
+    </string-array>
+</resources>

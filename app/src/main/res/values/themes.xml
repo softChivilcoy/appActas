@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.ChivilcoyActas" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <item name="colorPrimary">#33BB66</item>
+
+        <item name="colorSecondary">#33BB66</item>
+        <item name="android:statusBarColor">#33BB66</item>
+    </style>
+
+    <style name="Theme.ChivilcoyActas" parent="Base.Theme.ChivilcoyActas" />
+</resources>

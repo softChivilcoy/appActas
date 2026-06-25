@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- VISTA 1: PREPARACIÓN (Solo la ve el Inspector) -->
+    <LinearLayout
+        android:id="@+id/layoutPreparacionFirma"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="visible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✍️ CIERRE DE ACTA"
+            android:textColor="#33BB66"
+            android:textStyle="bold"
+            android:textSize="18sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Revise los datos antes de pasar al modo firma."
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"/>
+
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="¿Quién va a firmar?"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"/>
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggleGrupoFirmas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            android:orientation="vertical"
+            app:checkedButton="@+id/btnFirmaTestigo"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnFirmaTestigo"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1. FIRMA DE TESTIGO" />
+
+            <Button
+                android:id="@+id/btnFirmaInfractor"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2. FIRMA DE INFRACTOR"/>
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!--<com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggleGrupoFirmas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:checkedButton="@+id/btnFirmaInfractor"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnFirmaInfractor"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="INFRACTOR" />
+            <Button
+                android:id="@+id/btnFirmaTestigo"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="TESTIGO" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>-->
+
+        <!-- Campo opcional para el nombre del testigo si no estaba cargado -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/inputNombreTestigo"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nombre del Testigo"
+            android:visibility="visible"
+            android:enabled="false"
+            android:layout_marginBottom="16dp">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etNombreTestigo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapWords"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <CheckBox
+            android:id="@+id/checkSeNiegaAFirmar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="El infractor se niega a firmar"
+            android:textSize="16sp"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/btnIrAFirmar"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:text="ENTREGAR PARA FIRMAR"
+            android:backgroundTint="#007BFF"
+            app:icon="@drawable/ic_signature" />
+        <!-- ic_signature sería un icono de una lapicera -->
+
+    </LinearLayout>
+
+    <!-- VISTA 2: MODO CONFORMIDAD (La ve el Infractor) -->
+    <LinearLayout
+        android:id="@+id/layoutModoFirma"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#FFFFFF"
+        android:visibility="invisible">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="RESUMEN DE INFRACCIÓN"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:textColor="#000000"/>
+
+        <!-- Mini Resumen para validez legal -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#F1F3F4"
+            app:cardElevation="0dp"
+            android:layout_marginVertical="8dp">
+            <TextView
+                android:id="@+id/tvResumenActa"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="12dp"
+                android:text="Cargando datos..."
+                android:textColor="#333333"
+                android:textSize="13sp" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Al firmar, usted se da por notificado de la presente infracción. La firma no implica aceptación de la culpa, sino recepción de la notificación."
+            android:textSize="11sp"
+            android:textStyle="italic"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:strokeColor="#33BB66"
+            app:strokeWidth="2dp">
+
+            <com.github.gcacace.signaturepad.views.SignaturePad
+                android:id="@+id/signaturePad"
+                android:layout_width="match_parent"
+                android:layout_height="280dp"
+                android:background="@android:color/white"
+                android:saveEnabled="false"/>
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btnLimpiarFirma"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BORRAR"
+                android:textColor="#B71C1C" />
+
+            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+
+            <Button
+                android:id="@+id/btnFinalizarActa"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CONFIRMAR FIRMA"
+                android:enabled="false"
+                android:visibility="gone"
+                android:backgroundTint="#33BB66"
+                android:layout_marginTop="16dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

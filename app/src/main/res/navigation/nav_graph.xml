@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.chivilcoyactas.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login">
+
+        <action
+            android:id="@+id/action_login_to_seleccionReparticion"
+            app:destination="@id/seleccionReparticionFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/seleccionReparticionFragment"
+        android:name="com.chivilcoyactas.SeleccionReparticionFragment"
+        android:label="Seleccionar Repartición"
+        tools:layout="@layout/fragment_seleccion_reparticion">
+
+        <!-- De Selección a Alcoholemia (Si eligió Tránsito) -->
+        <action
+            android:id="@+id/action_seleccion_to_configAlco"
+            app:destination="@id/configuracionAlcoFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+
+        <!-- De Selección a Hoja de Ruta (Si eligió Inspección) -->
+        <action
+            android:id="@+id/action_seleccion_to_hojaRuta"
+            app:destination="@id/hojaRutaFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/configuracionAlcoFragment"
+            android:name="com.chivilcoyactas.ConfiguracionAlcoFragment"
+            android:label="Configuración"
+            tools:layout="@layout/fragment_configuracion_alco">
+
+        <action
+            android:id="@+id/action_configAlco_to_step1"
+            app:destination="@id/step1_ubicacion"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popUpTo="@id/configuracionAlcoFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- HOJA DE RUTA (Solo para Inspección) -->
+    <fragment
+        android:id="@+id/hojaRutaFragment"
+        android:name="com.chivilcoyactas.HojaRutaFragment"
+        android:label="Hoja de Ruta">
+
+        <action
+            android:id="@+id/action_hojaRuta_to_step1_ubicacion"
+            app:destination="@id/step1_ubicacion"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+
+    <fragment
+        android:id="@+id/step1_ubicacion"
+        android:name="com.chivilcoyactas.UbicacionFragment"
+        android:label="Ubicación"
+        tools:layout="@layout/fragment_ubicacion">
+        <action
+            android:id="@+id/action_ubicacion_to_faltas"
+            app:destination="@id/step2_faltas"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+
+        <!-- Opción B: Para Inspección  -->
+        <action
+            android:id="@+id/action_ubicacion_to_procedimiento"
+            app:destination="@id/step_procedimiento"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
+
+    <!-- PASO 2: TRANSITO _ FALTAS -->
+    <fragment
+        android:id="@+id/step2_faltas"
+        android:name="com.chivilcoyactas.FaltasFragment"
+        android:label="Faltas"
+        tools:layout="@layout/fragment_faltas">
+        <action
+            android:id="@+id/action_faltas_to_infractor"
+            app:destination="@id/step3_infractor"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+
+        <!-- NUEVA: Acción de vuelta al Infractor (Inspección) -->
+        <action
+            android:id="@+id/action_faltas_to_infractor_VUELTA"
+            app:destination="@id/step3_infractor"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right" />
+
+        <!-- Opción B: Para Inspección -->
+        <action
+            android:id="@+id/action_faltas_to_testigos"
+            app:destination="@id/step7_testigos"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <!--  PASO 2: INSPECCION _ PROCEDIMIENTO   -->
+    <fragment
+        android:id="@+id/step_procedimiento"
+        android:name="com.chivilcoyactas.ProcedimientoFragment"
+        android:label="Procedimiento">
+        <action
+            android:id="@+id/action_procedimiento_to_infractor"
+            app:destination="@id/step3_infractor" />
+
+        <!-- NUEVA VUELTA: De Procedimiento a Ubicación -->
+        <action
+            android:id="@+id/action_procedimiento_to_ubicacion_VUELTA"
+            app:destination="@id/step1_ubicacion"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step3_infractor"
+        android:name="com.chivilcoyactas.InfractorFragment"
+        android:label="Infractor"
+        tools:layout="@layout/fragment_infractor">
+        <action
+            android:id="@+id/action_infractor_to_vehiculo"
+            app:destination="@id/step4_vehiculo"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+
+        <!-- Opción B: Para Inspección -->
+        <action
+            android:id="@+id/action_infractor_to_faltas_inspeccion"
+            app:destination="@id/step2_faltas"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+
+        <!-- VUELTA PARA TRÁNSITO: al paso 2 -->
+        <action
+            android:id="@+id/action_infractor_to_faltas_VUELTA"
+            app:destination="@id/step2_faltas"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right" />
+
+        <!-- VUELTA PARA INSPECCIÓN: al paso de procedimiento -->
+        <action
+            android:id="@+id/action_infractor_to_procedimiento_VUELTA"
+            app:destination="@id/step_procedimiento"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step4_vehiculo"
+        android:name="com.chivilcoyactas.VehiculoFragment"
+        android:label="Vehículo"
+        tools:layout="@layout/fragment_vehiculo">
+        <action
+            android:id="@+id/action_vehiculo_to_alcoholemia"
+            app:destination="@id/step5_test"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step5_test"
+        android:name="com.chivilcoyactas.AlcoholemiaFragment"
+        android:label="Alcoholemia"
+        tools:layout="@layout/fragment_alcoholemia">
+
+        <action
+            android:id="@+id/action_alcoholemia_to_secuestro"
+            app:destination="@id/step6_secuestro"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+
+        <action
+            android:id="@+id/action_alcoholemia_to_testigos"
+            app:destination="@id/step7_testigos"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step6_secuestro"
+        android:name="com.chivilcoyactas.SecuestroFragment"
+        android:label="Detalle de Secuestro"
+        tools:layout="@layout/fragment_secuestro">
+        <action
+            android:id="@+id/action_secuestro_to_testigos"
+            app:destination="@id/step7_testigos"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step7_testigos"
+        android:name="com.chivilcoyactas.TestigosFragment"
+        android:label="Testigos"
+        tools:layout="@layout/fragment_testigos">
+        <action
+            android:id="@+id/action_testigos_to_fotos"
+            app:destination="@id/step8_fotos"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step8_fotos"
+        android:name="com.chivilcoyactas.FotosFragment"
+        android:label="Fotos"
+        tools:layout="@layout/fragment_fotos" >
+        <action
+            android:id="@+id/action_fotos_to_firma"
+            app:destination="@id/step9_firma"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step9_firma"
+        android:name="com.chivilcoyactas.FirmaFragment"
+        android:label="Firma"
+        tools:layout="@layout/fragment_firma">
+        <action
+            android:id="@+id/action_firma_to_exito"
+            app:destination="@id/step_exito"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/step_exito"
+        android:name="com.chivilcoyactas.ExitoFragment"
+        android:label="Acta Guardada"
+        tools:layout="@layout/fragment_exito">
+
+        <action
+            android:id="@+id/action_exito_to_step1"
+            app:destination="@id/step1_ubicacion"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+
+        <!-- NUEVA: Acción para Inspección (a Hoja de Ruta) -->
+        <action
+            android:id="@+id/action_exito_to_hojaRuta"
+            app:destination="@id/hojaRutaFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+</navigation>
