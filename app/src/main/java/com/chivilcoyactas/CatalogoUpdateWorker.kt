@@ -26,9 +26,14 @@ class CatalogoUpdateWorker(
                 val db = AppDatabase.getDatabase(applicationContext)
 
                 // 3. Mapeamos los DTOs de red a las Entities de Room
-                val listaFaltas = catalogos.tiposFalta.map {
-                    TipoFaltaEntity(id = it.id, codigo = it.codigoArticulo, descripcion = it.descripcion)
+                val listaAlcoholimetros = catalogos.alcoholimetros.map {
+                    AlcoholimetrosEntity(id = it.id, marca = it.marca, modelo = it.modelo, nroSerie = it.nroSerie, codHomologacion = it.codHomologacion)
                 }
+
+                val listaFaltas = catalogos.tiposFalta.map {
+                    TipoFaltaEntity(id = it.id, codigo = it.codigoArticulo, descripcionCorta = it.descripcionCorta, descripcionPlantilla = it.descripcionPlantilla)
+                }
+
                 val listaVehiculos = catalogos.tiposVehiculo.map {
                     TipoVehiculoEntity(id = it.id, nombre = it.nombre)
                 }
@@ -57,8 +62,34 @@ class CatalogoUpdateWorker(
                     )
                 }
 
+                val listaCategorias = catalogos.categoriasInspeccion?.map {
+                    CategoriaEntity(id = it.id, nombre = it.nombre)
+                } ?: emptyList()
+
+                val listaCheckVehicular = catalogos.paramChecklistVehicular?.map {
+                    CheckVehicularEntity(
+                        id = it.id,
+                        codigoClave = it.codigoClave,
+                        etiquetaVisible = it.etiquetaVisible,
+                        tipoDato = it.tipoDato,
+                        opcionesLista = it.opcionesLista,
+                        ordenUi = it.ordenUi,
+                        sectorVehiculo = it.sectorVehiculo
+                    )
+                } ?: emptyList()
+
+                val listaTipoVehiculoCheck= catalogos.tipoVehiculoChecklist?.map {
+                    TipoVehiculoCheckEntity(
+                        tipoVehiculoId = it.tipoVehiculoId,
+                        paramChecklistId = it.paramChecklistId,
+                        ordenUi = it.ordenUi,
+                        esObligatorio = it.esObligatorio
+                    )
+                } ?: emptyList()
+
                 // 4. Mandamos todo a Room bajo una transacción segura
                 db.catalogoDao().actualizarCatalogoCompleto(
+                    alcoholimetros = listaAlcoholimetros,
                     faltas = listaFaltas,
                     vehiculos = listaVehiculos,
                     marcas = listaMarcas,
@@ -66,7 +97,10 @@ class CatalogoUpdateWorker(
                     provincias = listaProvincias,
                     localidades = listaLocalidades,
                     actas = listaActas,
-                    quincenas = listaQuincenas
+                    quincenas = listaQuincenas,
+                    categorias = listaCategorias,
+                    checkvehicular = listaCheckVehicular,
+                    tipovehicularcheck = listaTipoVehiculoCheck
                 )
 
                 Log.d("WORKER_CATALOGO", "¡Catálogos actualizados en Room de forma limpia y transparente!")

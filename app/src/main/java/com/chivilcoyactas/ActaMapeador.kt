@@ -1,16 +1,34 @@
 package com.chivilcoyactas.net
 
 import com.chivilcoyactas.db.ActaCompletaDb
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
+// Función auxiliar para recuperar el Map<Int, String>
+private fun deserializarInventario(jsonString: String?): Map<String, String> {
+    if (jsonString.isNullOrEmpty()) return emptyMap()
+    return try {
+        val type = object : TypeToken<Map<String, String>>() {}.type
+        Gson().fromJson(jsonString, type) ?: emptyMap()
+    } catch (e: Exception) {
+        emptyMap()
+    }
+}
 
 object ActaMapeador {
 
     fun transformarAEnviarDto(dbData: ActaCompletaDb): ActaEnviarDto {
         val acta = dbData.cabecera
 
+        // Si la entidad vehículo no es null en el objeto relacional de Room, es TRANSITO
+        val tipoFormularioCalculado = if (dbData.vehiculo != null) "TRANSITO" else "INSPECCION"
+
         // 1. Mapeamos la Cabecera
         val cabeceraDto = CabeceraDto(
             idLocal = acta.idLocal,
+            nroActa = acta.nroActa,
             tipoActa = acta.tipoActa,
+            tipoFormulario = tipoFormularioCalculado, //
             idInspector = acta.idInspector,
             fecha = acta.fecha,
             hora = acta.hora,
@@ -24,7 +42,13 @@ object ActaMapeador {
             alturaCalle = acta.alturaCalle,
             detallePiso = acta.detallePiso,
             detalleReferencia = acta.detalleReferencia,
-            idJuzgado = acta.idJuzgado
+            idJuzgado = acta.idJuzgado,
+            idReparticion = acta.idReparticion,
+            detalleFalta = acta.detalleFalta,
+            serie = acta.serie,
+            puntoEmisionId = acta.puntoEmisionId,
+            anio = acta.anio,
+            secuencia = acta.secuencia,
         )
 
         // 2. Mapeamos el Infractor (Agregados: provincia, localidad, cp)
@@ -38,7 +62,8 @@ object ActaMapeador {
                 calle = it.calle,
                 altura = it.altura,
                 niegaDatos = it.niegaDatos,
-                vinculoLugar = it.vinculoLugar
+                vinculoLugar = it.vinculoLugar,
+                firmaPath = it.firmaPath
             )
         }
 
@@ -55,12 +80,17 @@ object ActaMapeador {
                 domicilioOriginal = it.domicilioOriginal,
                 provinciaOriginal = it.provinciaOriginal, // 🚀 AGREGADO
                 localidadOriginal = it.localidadOriginal,
-                cpOriginal = it.cpOriginal
+                cpOriginal = it.cpOriginal,
+                firmaPath = it.firmaPath
             )
         }
 
         // 5. Rama Condicional: TRANSITO
-        val datosTransitoDto = if (acta.tipoActa == "TRANSITO") {
+        // Comparamos el enum de la UI o consultamos si existen datos de vehículo
+        val esTransito = dbData.vehiculo != null || dbData.alcoholemia != null
+
+        val datosTransitoDto = if (esTransito) {
+
             val vehiculoDto = dbData.vehiculo?.let {
                 VehiculoDto(
                     dominioPatente = it.dominio,
@@ -76,23 +106,41 @@ object ActaMapeador {
                     marcaAlcoholimetro = it.marcaAlcoholimetro,
                     modeloAlcoholimetro = it.modeloAlcoholimetro,
                     nroSerieAlcoholimetro = it.nroSerieAlcoholimetro,
-                    codAprobacionAlcoholimetro = it.codAprobacionAlcoholimetro
+                    codAprobacionAlcoholimetro = it.codAprobacionAlcoholimetro,
+                    alcoholimetroId = it.alcoholimetroId
                 )
             }
+
+            // 1. Mapeamos la lista de Room directamente al DTO
+            val itemsChecklist = dbData.secuestro.map { item ->
+                SecuestroChecklistDto(
+                    codigoClave = item.codigoClave,
+                    valor = item.valor
+                )
+            }
+
+            // 2. Si hay ítems o hay retención de vehículo, creamos el DTO de secuestro
+            val secuestroDto = if (itemsChecklist.isNotEmpty() || dbData.medidasPreventivas?.retencionVehiculo == true) {
+                SecuestroDto(items = itemsChecklist)
+            } else null
 
             DatosTransitoDto(
                 vehiculo = vehiculoDto,
                 retencionLicencia = dbData.medidasPreventivas?.retencionLicencia ?: false,
                 retencionVehiculo = dbData.medidasPreventivas?.retencionVehiculo ?: false,
-                secuestroInventario = dbData.secuestro?.inventarioSerializado,
-                alcoholemia = alcoholemiaDto
+                alcoholemia = alcoholemiaDto,
+                secuestro = secuestroDto
             )
+
+            //secuestroInventario = dbData.secuestro?.inventarioSerializado,
         } else null
 
         // 6. Rama Condicional: INSPECCION
-        val datosInspeccionDto = if (acta.tipoActa != "TRANSITO") {
+        val datosInspeccionDto = if (!esTransito) {
             dbData.procedimiento?.let { proc ->
-                val comercioDto = dbData.comercio?.let { com ->
+
+                // 🔹 Si com.esVacio() es true, devuelve null y NO genera ComercioDto
+                val comercioDto = dbData.comercio?.takeIf { !it.esVacio() }?.let { com ->
                     ComercioDto(
                         nombreComercio = com.nombreComercio,
                         nroHabilitacion = com.nroHabilitacionMunicipal,
@@ -100,7 +148,8 @@ object ActaMapeador {
                     )
                 }
 
-                val catastroDto = dbData.catastro?.let { cat ->
+                // 🔹 Si cat.esVacio() es true, devuelve null y NO genera CatastroDto
+                val catastroDto = dbData.catastro?.takeIf { !it.esVacio() }?.let { cat ->
                     CatastroDto(
                         circ = cat.ctCirc, secc = cat.ctSecc, chNro = cat.ctChaqNro, chLet = cat.ctChaqLet,
                         quinNro = cat.ctQuinNro, quinLet = cat.ctQuinLet, fracNro = cat.ctFracNro, fracLetra = cat.ctFracLetra,

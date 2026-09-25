@@ -1,6 +1,7 @@
 package com.chivilcoyactas
 
 import android.os.Bundle
+import android.text.InputFilter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +20,7 @@ import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
+
 class VehiculoFragment : Fragment() {
 
     private val actaViewModel: ActaViewModel by activityViewModels()
@@ -34,46 +36,25 @@ class VehiculoFragment : Fragment() {
         return binding.root // Esto reemplaza al 'return view'
     }
 
+    // Guardamos la lista de objetos devuelta por Room para consultar el ID de modelo al hacer click
+    private var listaModelosActuales: List<TipoModeloEntity> = emptyList()
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         // 1. Actualizar barra al Paso 4
         (activity as? MainActivity)?.actualizarProgreso(4)
 
-        // 2. Configurar el selector de Tipo de Vehículo
-        /*val tiposVehiculo = arrayOf("AUTOMOVIL", "CAMION", "CAMIONETA", "OMNIBUS", "MOTOCICLETA", "CICLOMOTOR", "CUATRICICLO", "OTROS")
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            tiposVehiculo
-        )
-        binding.autoCompleteTipoVehiculo.setAdapter(adapter)
-        if (actaViewModel.tipoVehiculo.isEmpty()) {
-            actaViewModel.tipoVehiculo = "AUTOMOVIL"
-        }
+        // En el onViewCreated o al inicializar tus vistas:
+        val autoFilterUpper = InputFilter.AllCaps()
 
-       // Cargamos el dato guardado sin filtrar
-       if (actaViewModel.tipoVehiculo.isNotEmpty()) {
-           binding.autoCompleteTipoVehiculo.setText(actaViewModel.tipoVehiculo, false)
-       }
 
-       // Escuchamos el click en el CONTENEDOR (el Layout), no en el texto
-       binding.inputLayoutTipoVehiculo.setOnClickListener {
-           (binding.autoCompleteTipoVehiculo.adapter as? ArrayAdapter<*>)?.filter?.filter(null)
-           binding.autoCompleteTipoVehiculo.showDropDown()
-       }
+        binding.autoCompleteMarca.filters = arrayOf(autoFilterUpper)
+        binding.autoCompleteModelo.filters = arrayOf(autoFilterUpper)
 
-       // También forzamos que si tocan el AutoComplete, se lo pase al padre
-       binding.autoCompleteTipoVehiculo.setOnClickListener {
-           binding.inputLayoutTipoVehiculo.performClick()
-       }
-
-        binding.autoCompleteTipoVehiculo.setOnItemClickListener { parent, _, position, _ ->
-            val seleccion = parent.getItemAtPosition(position).toString()
-            actaViewModel.tipoVehiculo = seleccion
-            // Limpiamos el dominio si cambian de tipo para evitar errores de formato
-            binding.etDominio.text?.clear()
-        }*/
+        // Habilitar edición de texto libre y teclado estándar en Marcas y Modelos
+        binding.autoCompleteMarca.keyListener = android.text.method.TextKeyListener.getInstance()
+        binding.autoCompleteModelo.keyListener = android.text.method.TextKeyListener.getInstance()
 
         // ==========================================
         // 🚀 CONTROL DE COMBOS DINÁMICOS DESDE ROOM
@@ -85,7 +66,6 @@ class VehiculoFragment : Fragment() {
             val adapterTipo = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresTipos)
             binding.autoCompleteTipoVehiculo.setAdapter(adapterTipo)
 
-            // Si el ViewModel ya tenía un ID o un nombre, lo seleccionamos
             if (actaViewModel.tipoVehiculo.isNotEmpty()) {
                 binding.autoCompleteTipoVehiculo.setText(actaViewModel.tipoVehiculo, false)
             }
@@ -95,14 +75,13 @@ class VehiculoFragment : Fragment() {
             val seleccion = parent.getItemAtPosition(position).toString()
             actaViewModel.tipoVehiculo = seleccion
 
-            // Guardamos el ID real de Postgres
             val objetoTipo = actaViewModel.todosLosTiposVehiculo.value?.find { it.nombre == seleccion }
             actaViewModel.idTipoVehiculoSeleccionado = objetoTipo?.id ?: 0
 
             binding.etDominio.text?.clear()
         }
 
-        // 2. CARGA DE MARCAS
+        // 2. CARGA DE MARCAS Y RESTAURACIÓN DE MODELOS
         actaViewModel.todasLasMarcas.observe(viewLifecycleOwner) { listaMarcas ->
             val nombresMarcas = listaMarcas.map { it.nombre }
             val adapterMarca = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresMarcas)
@@ -110,6 +89,12 @@ class VehiculoFragment : Fragment() {
 
             if (actaViewModel.marca.isNotEmpty()) {
                 binding.autoCompleteMarca.setText(actaViewModel.marca, false)
+
+                // Verificamos de forma segura usando el operador elvis (?:) o asignación local
+                val idMarca = actaViewModel.idMarcaSeleccionada
+                if (idMarca != null && idMarca > 0) {
+                    cargarModelosPorMarca(idMarca)
+                }
             }
         }
 
@@ -117,22 +102,20 @@ class VehiculoFragment : Fragment() {
             val marcaSeleccionada = parent.getItemAtPosition(position).toString()
             actaViewModel.marca = marcaSeleccionada
 
-            // Buscamos el ID de la marca elegida
             val objetoMarca = actaViewModel.todasLasMarcas.value?.find { it.nombre == marcaSeleccionada }
-            val marcaId = objetoMarca?.id ?: 0
-            actaViewModel.idMarcaSeleccionada = marcaId
+            val marcaId = objetoMarca?.id ?: 0 // Si no lo encuentra, asigna 0
 
-            // Limpiamos el combo de modelos porque cambió la marca
-            binding.autoCompleteModelo.text.clear()
+            // Guardamos en el ViewModel (será null si es 0)
+            actaViewModel.idMarcaSeleccionada = if (marcaId > 0) marcaId else null
+
+            // Limpiamos el combo de modelos al cambiar la marca
+            binding.autoCompleteModelo.text?.clear()
             actaViewModel.modelo = ""
-            actaViewModel.idModeloSeleccionado = 0
+            actaViewModel.idModeloSeleccionado = null
 
-            // 🔄 Disparamos la búsqueda de modelos de esta marca en Room de forma asíncrona
-            lifecycleScope.launch {
-                val modelosFiltrados = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerModelosPorMarca(marcaId)
-                val nombresModelos = modelosFiltrados.map { it.nombre }
-                val adapterModelo = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresModelos)
-                binding.autoCompleteModelo.setAdapter(adapterModelo)
+            // Si tenemos un ID válido, cargamos los modelos de esa marca
+            if (marcaId > 0) {
+                cargarModelosPorMarca(marcaId)
             }
         }
 
@@ -141,16 +124,12 @@ class VehiculoFragment : Fragment() {
             val modeloSeleccionado = parent.getItemAtPosition(position).toString()
             actaViewModel.modelo = modeloSeleccionado
 
-            // Para obtener el ID del modelo podés consultar rápido la base o guardarlo en memoria
-            // En el ejecutarSiguiente() nos aseguramos de persistirlo todo.
+            // Buscamos el ID real desde la lista filtrada guardada en memoria
+            val objetoModelo = listaModelosActuales.find { it.nombre.equals(modeloSeleccionado, ignoreCase = true) }
+            actaViewModel.idModeloSeleccionado = objetoModelo?.id ?: 0
         }
 
-        // Ocultar teclado al tocar fuera de los campos
-        binding.scrollVehiculo.setOnTouchListener { _, _ ->
-            (activity as? MainActivity)?.hideKeyboard()
-            false
-        }
-
+        // Listener para formatear patente
         binding.etDominio.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -169,99 +148,31 @@ class VehiculoFragment : Fragment() {
             }
         })
 
-        /*
-
-       binding.autoCompleteTipoVehiculo.apply {
-           // 1. Cargamos el dato si existe
-           if (actaViewModel.tipoVehiculo.isNotEmpty()) {
-               setText(actaViewModel.tipoVehiculo, false)
-           }
-
-           // 2. Quitamos el umbral para que siempre tenga data lista
-           threshold = 100
-
-           // 3. Este es el listener que arregla el parpadeo
-           setOnClickListener {
-               // Limpiamos el filtro antes de mostrar
-               (adapter as? ArrayAdapter<*>)?.filter?.filter(null)
-               showDropDown()
-           }
-       }*/
-
-        // 3. Cargar datos si el inspector volvió atrás
-        // Usamos el valor del ViewModel o "AUTOMOVIL" por defecto
-        /*val tipoGuardado = actaViewModel.tipoVehiculo
-        if (tipoGuardado.isNotEmpty()) {
-            binding.autoCompleteTipoVehiculo.setText(tipoGuardado, false) // El 'false' es CLAVE
-        }*/
-
-        // LA SOLUCIÓN DEFINITIVA:
-        // Usamos el OnTouchListener para limpiar el filtro ANTES de mostrar el DropDown
-       /* binding.autoCompleteTipoVehiculo.setOnTouchListener { v, event ->
-            if (event.action == android.view.MotionEvent.ACTION_UP) {
-                // 1. Limpiamos cualquier texto para que el filtro sea nulo
-                binding.autoCompleteTipoVehiculo.text = null
-                // 2. Mostramos todas las opciones
-                binding.autoCompleteTipoVehiculo.showDropDown()
-                // 3. Restauramos el texto original (opcional, para que no quede vacío si no elige nada)
-                if (tipoGuardado.isNotEmpty()) {
-                    binding.autoCompleteTipoVehiculo.postDelayed({
-                        if (binding.autoCompleteTipoVehiculo.text.isNullOrEmpty()) {
-                            binding.autoCompleteTipoVehiculo.setText(tipoGuardado, false)
-                        }
-                    }, 100)
-                }
-            }
-            false
-        }*/
-
-
-        // Opcionalmente, forzar que el adaptador no filtre:
-        //(binding.autoCompleteTipoVehiculo.adapter as? ArrayAdapter<*>)?.filter?.filter(null)
-
-        /*binding.autoCompleteTipoVehiculo.setOnTouchListener { v, event ->
-            if (event.action == android.view.MotionEvent.ACTION_UP) {
-                binding.autoCompleteTipoVehiculo.showDropDown()
-            }
-            false
-        }*/
-
-        // 1. Definimos qué pasa cuando cambia el estado
+        // Listener para desplegar/ocultar datos del propietario
         binding.checkEsPropietario.setOnCheckedChangeListener { _, isChecked ->
             actaViewModel.esPropietario = isChecked
 
             if (isChecked) {
-                // Si es el propietario, ocultamos el formulario extra
                 binding.layoutDatosPropietario.visibility = View.GONE
             } else {
-                // Si NO es el propietario, mostramos los campos para completar
                 binding.layoutDatosPropietario.visibility = View.VISIBLE
-
-                // Opcional: Hacer scroll hacia abajo para que el inspector vea que aparecieron campos
                 binding.etNombrePropietario.requestFocus()
             }
         }
 
+        // Ocultar teclado al tocar fuera de los campos
+        binding.scrollVehiculo.setOnTouchListener { _, _ ->
+            (activity as? MainActivity)?.hideKeyboard()
+            false
+        }
 
-        // cargamos el valor del ViewModel
-        // Al hacer esto, se dispara automáticamente el Listener de arriba
-        // y el layout se muestra u oculta solo.
+        // Restaurar valores guardados previamente en el ViewModel
         binding.etDominio.setText(actaViewModel.dominio)
-        binding.autoCompleteMarca.setText(actaViewModel.marca, false)  // El 'false' es clave para que no filtre al cargar
-        binding.autoCompleteModelo.setText(actaViewModel.modelo, false) // El 'false' es clave para que no filtre al cargar
+        binding.autoCompleteMarca.setText(actaViewModel.marca, false)
+        binding.autoCompleteModelo.setText(actaViewModel.modelo, false)
         binding.checkEsPropietario.isChecked = actaViewModel.esPropietario
-        //binding.etProcedimiento.setText(actaViewModel.procedimientoVeh)
 
-        // 4. Listeners para el teclado y botones
-       /* binding.etProcedimiento.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
-                ejecutarSiguiente()
-                true
-            } else {
-                false
-            }
-        }*/
-
+        // Navegación
         binding.btnSiguienteVehiculo.setOnClickListener {
             ejecutarSiguiente()
         }
@@ -270,33 +181,55 @@ class VehiculoFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        // 5. Aplicar auto-scroll a todos los campos, incluido el nuevo selector
-        //configurarAutoScroll(binding.autoCompleteTipoVehiculo)
+        // Configurar autoscroll
         configurarAutoScroll(binding.etDominio)
         configurarAutoScroll(binding.autoCompleteMarca)
         configurarAutoScroll(binding.autoCompleteModelo)
-        //configurarAutoScroll(binding.etProcedimiento)
+    }
+
+    // Función auxiliar privada para cargar los modelos filtrados desde Room
+    private fun cargarModelosPorMarca(marcaId: Int) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val db = AppDatabase.getDatabase(requireContext())
+            listaModelosActuales = db.catalogoDao().obtenerModelosPorMarca(marcaId)
+
+            val nombresModelos = listaModelosActuales.map { it.nombre }
+            val adapterModelo = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresModelos)
+            binding.autoCompleteModelo.setAdapter(adapterModelo)
+
+            if (actaViewModel.modelo.isNotEmpty()) {
+                binding.autoCompleteModelo.setText(actaViewModel.modelo, false)
+            }
+        }
     }
 
     private fun ejecutarSiguiente() {
-        // GUARDAR TODO EN EL VIEWMODEL
-
-        if (!actaViewModel.esPropietario) {
-            actaViewModel.nombreResponsable = binding.etNombrePropietario.text.toString().uppercase()
-            actaViewModel.dniResponsable = binding.etDniPropietario.text.toString()
+        // 1. Datos del responsable/propietario
+        if (!binding.checkEsPropietario.isChecked) {
+            actaViewModel.nombreResponsable = binding.etNombrePropietario.text.toString().trim().uppercase()
+            actaViewModel.dniResponsable = binding.etDniPropietario.text.toString().trim()
         } else {
             actaViewModel.nombreResponsable = actaViewModel.ApellidoNombreInfractor
             actaViewModel.dniResponsable = actaViewModel.dniInfractor
         }
 
-        // Leemos de los AutoCompleteTextViews nuevos
-        actaViewModel.tipoVehiculo = binding.autoCompleteTipoVehiculo.text.toString()
-        actaViewModel.marca = binding.autoCompleteMarca.text.toString()
-        actaViewModel.modelo = binding.autoCompleteModelo.text.toString()
-        actaViewModel.dominio = binding.etDominio.text.toString().uppercase()
+        // 2. Guardar textos en el ViewModel desde las vistas
+        actaViewModel.tipoVehiculo = binding.autoCompleteTipoVehiculo.text.toString().trim()
+        actaViewModel.marca = binding.autoCompleteMarca.text.toString().trim().uppercase()
+        actaViewModel.modelo = binding.autoCompleteModelo.text.toString().trim().uppercase()
+        actaViewModel.dominio = binding.etDominio.text.toString().trim().uppercase()
         actaViewModel.esPropietario = binding.checkEsPropietario.isChecked
 
-        // Navegar al paso 5 (Alcoholemia)
+        // 3. Validación de consistencia para IDs
+        // Si el usuario modificó manualmente el texto y no coincide con una selección previa de catálogo, reseteamos el ID a null
+        if (actaViewModel.marca.isEmpty()) {
+            actaViewModel.idMarcaSeleccionada = null
+        }
+        if (actaViewModel.modelo.isEmpty()) {
+            actaViewModel.idModeloSeleccionado = null
+        }
+
+        // 4. Navegar al paso 5 (Alcoholemia)
         findNavController().navigate(R.id.action_vehiculo_to_alcoholemia)
     }
 
@@ -368,5 +301,4 @@ class VehiculoFragment : Fragment() {
             binding.etDominio.inputType = modoTexto
         }
     }
-
 }

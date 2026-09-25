@@ -11,17 +11,20 @@ object SessionManager {
     private const val KEY_MODELO = "alco_modelo"
     private const val KEY_SERIE = "alco_serie"
 
+    private const val KEY_ALCO_HOMOLOGACION = "alco_homologacion"
+
     private const val KEY_FIRMA_INSPECTOR = "firma_inspector_base64"
 
     /**
      * Guarda los datos del alcoholímetro en el disco (SharedPreferences)
      */
-    fun guardarAlcoholimetro(context: Context, marca: String, modelo: String, serie: String) {
+    fun guardarAlcoholimetro(context: Context, marca: String, modelo: String, serie: String, codHomologacion: String) {
         val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val editor = prefs.edit()
         editor.putString(KEY_MARCA, marca)
         editor.putString(KEY_MODELO, modelo)
         editor.putString(KEY_SERIE, serie)
+        editor.putString(KEY_ALCO_HOMOLOGACION, codHomologacion)
         editor.apply() // .apply() guarda en segundo plano, no traba la app
     }
 
@@ -33,7 +36,8 @@ object SessionManager {
         return mapOf(
             "marca" to (prefs.getString(KEY_MARCA, "") ?: ""),
             "modelo" to (prefs.getString(KEY_MODELO, "") ?: ""),
-            "serie" to (prefs.getString(KEY_SERIE, "") ?: "")
+            "serie" to (prefs.getString(KEY_SERIE, "") ?: ""),
+            "codHomologacion" to (prefs.getString(KEY_ALCO_HOMOLOGACION, "") ?: "")
         )
     }
 

@@ -89,6 +89,21 @@
                 android:padding="16dp">
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Marca del Alcoholímetro"
+                    app:startIconDrawable="@android:drawable/ic_menu_info_details">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/etConfigMarca"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+
+                <!--<com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -101,7 +116,7 @@
                         android:layout_height="wrap_content"
                         android:inputType="textCapCharacters"
                         android:singleLine="true"/>
-                </com.google.android.material.textfield.TextInputLayout>
+                </com.google.android.material.textfield.TextInputLayout>-->
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
@@ -115,6 +130,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="textCapCharacters"
+                        android:focusable="false"
+                        android:clickable="false"
                         android:singleLine="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -129,57 +146,30 @@
                         android:id="@+id/etConfigSerie"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="false"
                         android:singleLine="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- 4. CÓDIGO DE APROBACIÓN (Llenado automático, solo lectura) -->
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Cód. de Aprobación">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etConfigAprobacion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Bloque Obligatorio: Firma del Inspector para el Turno
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Firma del Inspector (Válida para todo el turno)"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#1A237E"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"
-            android:layout_marginHorizontal="4dp"/>
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="8dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
-
-
-                <View
-                    android:id="@+id/signaturePadInspector"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="#FFFFFF" />
-
-
-                <Button
-                    android:id="@+id/btnLimpiarFirma"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|end"
-                    android:layout_margin="8dp"
-                    android:text="Limpiar"
-                    android:textColor="#FF5555"
-                    android:textSize="12sp" />
-            </FrameLayout>
-        </androidx.cardview.widget.CardView>
-        -->
         <Button
             android:id="@+id/btnGuardarConfig"
             android:layout_width="match_parent"

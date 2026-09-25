@@ -29,33 +29,56 @@ class ProcedimientoFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         (activity as? MainActivity)?.actualizarProgreso(2)
 
-        // Lógica de carga dinámica de categorías
-        if (actaViewModel.catalogoCategorias.isEmpty()) {
-            viewLifecycleOwner.lifecycleScope.launch {
-                val categoriasDb = AppDatabase.getDatabase(requireContext()).categoriaDao().obtenerTodas()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val db = AppDatabase.getDatabase(requireContext())
+
+            // 1. Cargar las categorías de la base de datos (o sembrar si está vacía)
+            if (actaViewModel.catalogoCategorias.isEmpty()) {
+                var categoriasDb = db.catalogoDao().obtenerTodasLasCategorias()
+
+                if (categoriasDb.isEmpty()) {
+                    val categoriasSemilla = listOf(
+                        CategoriaEntity(nombre = "Baldío"),
+                        CategoriaEntity(nombre = "Comercio / Local"),
+                        CategoriaEntity(nombre = "Higiene Urbana"),
+                        CategoriaEntity(nombre = "Obra en Construcción"),
+                        CategoriaEntity(nombre = "Vereda / Terreno"),
+                        CategoriaEntity(nombre = "Vía Pública / Ruidos")
+                    )
+                    db.catalogoDao().insertarCategorias(categoriasSemilla)
+                    categoriasDb = db.catalogoDao().obtenerTodasLasCategorias()
+                }
                 actaViewModel.catalogoCategorias = categoriasDb
-                renderizarCheckboxes(categoriasDb)
             }
-        } else {
+
+            // 2. Renderizar dinámicamente los Checkboxes
             renderizarCheckboxes(actaViewModel.catalogoCategorias)
+
+            // 3. Configurar el Spinner de Acciones (Tipos de Acta)
+            setupSpinnerAcciones()
+
+            // 4. Volcar y recuperar los datos en los controles de la vista
+            recuperarDatos()
         }
 
-        // Configurar el Spinner de Acciones
-        val acciones = arrayOf("Inspección General", "Notificación", "Clausura Preventiva", "Cese de Actividad")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, acciones)
-        binding.spinnerAccion.setAdapter(adapter)
-
-        recuperarDatos()
-
         binding.btnVolverProcedimiento.setOnClickListener {
-            findNavController().navigateUp() // Más seguro que usar el ID de acción
+            findNavController().navigateUp()
         }
 
         binding.btnSiguienteProcedimiento.setOnClickListener {
+            // Validar categorías tildadas
             if (actaViewModel.categoriasSeleccionadas.isEmpty()) {
                 Toast.makeText(context, "Debe seleccionar al menos una categoría", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+
+            // Validar que se haya seleccionado un Tipo de Acta o escrito una acción válida
+            val accionTexto = binding.spinnerAccion.text.toString().trim()
+            if (actaViewModel.idTipoActaSeleccionada == null && accionTexto.isEmpty()) {
+                Toast.makeText(context, "Debe seleccionar un tipo de acción/acta", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             guardarDatos()
             findNavController().navigate(R.id.action_procedimiento_to_infractor)
         }
@@ -67,68 +90,132 @@ class ProcedimientoFragment : Fragment() {
         }
     }
 
+    private fun setupSpinnerAcciones() {
+        val tiposActaInspeccion = actaViewModel.listaTiposActaDisponibles
+
+        if (tiposActaInspeccion.isNotEmpty()) {
+            val nombresAcciones = tiposActaInspeccion.map { it.nombre }
+            val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresAcciones)
+            binding.spinnerAccion.setAdapter(adapter)
+
+            // Al seleccionar una opción, guardamos el ID real de la BD y actualizamos el ViewModel
+            binding.spinnerAccion.setOnItemClickListener { _, _, position, _ ->
+                val tipoSeleccionado = tiposActaInspeccion[position]
+                actaViewModel.idTipoActaSeleccionada = tipoSeleccionado.id
+                actaViewModel.procAccion = tipoSeleccionado.nombre
+            }
+        } else {
+            Toast.makeText(requireContext(), "No hay tipos de acta configurados para esta repartición", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun renderizarCheckboxes(lista: List<CategoriaEntity>) {
         binding.containerCheckboxes.removeAllViews()
+
         lista.forEach { categoria ->
+            val nombreLimpio = categoria.nombre.trim()
             val cb = CheckBox(requireContext()).apply {
-                text = categoria.nombre
-                isChecked = actaViewModel.categoriasSeleccionadas.contains(categoria.nombre)
+                text = nombreLimpio
+                textSize = 15f
+                setPadding(12, 12, 12, 12)
+
+                // 🔹 Verificación flexible: coincide ignorando espacios extras y mayúsculas
+                isChecked = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
+                    normalizarTexto(seleccionada) == normalizarTexto(nombreLimpio)
+                }
 
                 setOnCheckedChangeListener { _, isChecked ->
                     if (isChecked) {
-                        if (!actaViewModel.categoriasSeleccionadas.contains(categoria.nombre)) {
-                            actaViewModel.categoriasSeleccionadas.add(categoria.nombre)
+                        val yaExiste = actaViewModel.categoriasSeleccionadas.any {
+                            normalizarTexto(it) == normalizarTexto(nombreLimpio)
+                        }
+                        if (!yaExiste) {
+                            actaViewModel.categoriasSeleccionadas.add(nombreLimpio)
                         }
                     } else {
-                        actaViewModel.categoriasSeleccionadas.remove(categoria.nombre)
+                        actaViewModel.categoriasSeleccionadas.removeAll {
+                            normalizarTexto(it) == normalizarTexto(nombreLimpio)
+                        }
                     }
-                    // --- AGREGADO: Actualiza el Card cada vez que tocan un check ---
                     actualizarVisibilidadCatastro()
                 }
             }
             binding.containerCheckboxes.addView(cb)
         }
-        // --- AGREGADO: Ejecutamos una vez al cargar por si ya había algo seleccionado ---
         actualizarVisibilidadCatastro()
     }
 
+    // Función auxiliar para comparar nombres de categorías de forma segura
+    private fun normalizarTexto(texto: String): String {
+        return texto.trim().replace("\\s+".toRegex(), " ").lowercase()
+    }
+
     private fun actualizarVisibilidadCatastro() {
-        val categoriasCatastro = listOf("Comercio / Local", "Vereda / Terreno", "Obra en Construcción", "Baldío")
-        val mostrarCatastro = actaViewModel.categoriasSeleccionadas.any { it in categoriasCatastro }
+        val categoriasCatastro = listOf("Baldío", "Comercio / Local", "Higiene Urbana", "Obra en Construcción", "Vereda / Terreno", "Vía Pública / Ruidos")
+
+        // Comparación insensible a mayúsculas/espacios
+        val mostrarCatastro = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
+            categoriasCatastro.any { it.equals(seleccionada.trim(), ignoreCase = true) }
+        }
         binding.cardCatastro.visibility = if (mostrarCatastro) View.VISIBLE else View.GONE
 
-        // 2. Lógica para Comercio (Solo un disparador específico)
-        val mostrarComercio = actaViewModel.categoriasSeleccionadas.contains("Comercio / Local")
+        val mostrarComercio = actaViewModel.categoriasSeleccionadas.any {
+            it.trim().equals("Comercio / Local", ignoreCase = true)
+        }
         binding.cardComercio.visibility = if (mostrarComercio) View.VISIBLE else View.GONE
 
-        // 3. Actualizamos el flujo de focos según los cambios de visibilidad de arriba
         actualizarFlujoDeFocos()
     }
 
     private fun actualizarFlujoDeFocos() {
-        // Verificamos si la tarjeta de catastro quedó visible o no
         val esCatastroVisible = binding.cardCatastro.visibility == View.VISIBLE
 
         if (esCatastroVisible) {
-            // Si Catastro está visible, el "Siguiente" de Rubro salta a Circunscripción
             binding.etRubro.nextFocusForwardId = binding.etCirc.id
         } else {
-            // Si Catastro está oculto, el "Siguiente" de Rubro salta directo a Referencia Acta
             binding.etRubro.nextFocusForwardId = binding.etRefActa.id
         }
     }
 
     private fun recuperarDatos() {
-        binding.spinnerAccion.setText(actaViewModel.procAccion, false)
+        // 1. Si no tenemos ID pero tenemos el texto recuperado de la BD, buscamos su ID en la lista
+        if (actaViewModel.idTipoActaSeleccionada == null && actaViewModel.procAccion.isNotEmpty()) {
+            val tipoEncontrado = actaViewModel.listaTiposActaDisponibles.find {
+                it.nombre.trim().equals(actaViewModel.procAccion.trim(), ignoreCase = true)
+            }
+            if (tipoEncontrado != null) {
+                actaViewModel.idTipoActaSeleccionada = tipoEncontrado.id
+            }
+        }
+
+        // 2. Seteamos el texto en el Spinner según el ID o el texto guardado
+        val tipoActual = actaViewModel.listaTiposActaDisponibles.find { it.id == actaViewModel.idTipoActaSeleccionada }
+        if (tipoActual != null) {
+            binding.spinnerAccion.setText(tipoActual.nombre, false)
+        } else if (actaViewModel.procAccion.isNotEmpty()) {
+            binding.spinnerAccion.setText(actaViewModel.procAccion, false)
+        }
+
+        // 3. Forzamos la sincronización de los Checkboxes tildados físicamente en las vistas
+        for (i in 0 until binding.containerCheckboxes.childCount) {
+            val child = binding.containerCheckboxes.getChildAt(i)
+            if (child is CheckBox) {
+                val nombreCb = child.text.toString()
+                val estaMarcado = actaViewModel.categoriasSeleccionadas.any {
+                    normalizarTexto(it) == normalizarTexto(nombreCb)
+                }
+                child.isChecked = estaMarcado
+            }
+        }
+
+        // Resto del recuperarDatos...
         binding.etRefActa.setText(actaViewModel.procRefActa)
         binding.etDetalleProcedimiento.setText(actaViewModel.procSeProcedeA)
 
-        //Recuperar Campos Comercio
         binding.etNombreFantasia.setText(actaViewModel.comNombreFantasia)
         binding.etHabNumero.setText(actaViewModel.comHabNumero)
         binding.etRubro.setText(actaViewModel.comRubro)
 
-        // Recuperar Campos Catastrales
         binding.etCirc.setText(actaViewModel.catCirc)
         binding.etSeccion.setText(actaViewModel.catSeccion)
         binding.etChacraNro.setText(actaViewModel.catChacraNro)
@@ -148,30 +235,33 @@ class ProcedimientoFragment : Fragment() {
     }
 
     private fun guardarDatos() {
-        actaViewModel.procAccion = binding.spinnerAccion.text.toString()
+        actaViewModel.procAccion = binding.spinnerAccion.text.toString().trim()
         actaViewModel.procRefActa = binding.etRefActa.text.toString().trim()
         actaViewModel.procSeProcedeA = binding.etDetalleProcedimiento.text.toString().trim()
 
-        //Guardar Campos Comercio
+        // 🚀 Guardar las categorías seleccionadas unidas por coma para tipoInmueble
+        actaViewModel.procTipoInmueble = actaViewModel.categoriasSeleccionadas.joinToString(", ")
+
+        // Guardar Campos Comercio
         actaViewModel.comNombreFantasia = binding.etNombreFantasia.text.toString().trim()
         actaViewModel.comHabNumero = binding.etHabNumero.text.toString().trim()
         actaViewModel.comRubro = binding.etRubro.text.toString().trim()
 
         // Guardar Campos Catastrales
-        actaViewModel.catCirc = binding.etCirc.text.toString()
-        actaViewModel.catSeccion = binding.etSeccion.text.toString()
-        actaViewModel.catChacraNro = binding.etChacraNro.text.toString()
-        actaViewModel.catChacraLet = binding.etChacraLet.text.toString()
-        actaViewModel.catQuintaNro = binding.etQuintaNro.text.toString()
-        actaViewModel.catQuintaLet = binding.etQuintaLet.text.toString()
-        actaViewModel.catFraccionNro = binding.etFraccionNro.text.toString()
-        actaViewModel.catFraccionLet = binding.etFraccionLet.text.toString()
-        actaViewModel.catManzanaNro = binding.etManzanaNro.text.toString()
-        actaViewModel.catManzanaLet = binding.etManzanaLet.text.toString()
-        actaViewModel.catParcelaNro = binding.etParcelaNro.text.toString()
-        actaViewModel.catParcelaLet = binding.etParcelaLet.text.toString()
-        actaViewModel.catSubparcela = binding.etSubparcela.text.toString()
-        actaViewModel.catUF = binding.etUF.text.toString()
+        actaViewModel.catCirc = binding.etCirc.text.toString().trim()
+        actaViewModel.catSeccion = binding.etSeccion.text.toString().trim()
+        actaViewModel.catChacraNro = binding.etChacraNro.text.toString().trim()
+        actaViewModel.catChacraLet = binding.etChacraLet.text.toString().trim()
+        actaViewModel.catQuintaNro = binding.etQuintaNro.text.toString().trim()
+        actaViewModel.catQuintaLet = binding.etQuintaLet.text.toString().trim()
+        actaViewModel.catFraccionNro = binding.etFraccionNro.text.toString().trim()
+        actaViewModel.catFraccionLet = binding.etFraccionLet.text.toString().trim()
+        actaViewModel.catManzanaNro = binding.etManzanaNro.text.toString().trim()
+        actaViewModel.catManzanaLet = binding.etManzanaLet.text.toString().trim()
+        actaViewModel.catParcelaNro = binding.etParcelaNro.text.toString().trim()
+        actaViewModel.catParcelaLet = binding.etParcelaLet.text.toString().trim()
+        actaViewModel.catSubparcela = binding.etSubparcela.text.toString().trim()
+        actaViewModel.catUF = binding.etUF.text.toString().trim()
     }
 
     override fun onDestroyView() {

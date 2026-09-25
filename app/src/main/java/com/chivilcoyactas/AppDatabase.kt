@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.Room
+import com.chivilcoyactas.TipoVehiculoCheckEntity
 
 @Database(
     entities = [
         ActaEntity::class,
+        PuntoSecuenciaEntity::class,
         ActaInfractorEntity::class,
         ActaVehiculoEntity::class,
         ActaFaltasEntity::class,
@@ -19,6 +21,7 @@ import androidx.room.Room
         ActaProcedimientoEntity::class,
         ActaComercioEntity::class,
         ActaCatastroEntity::class,
+        AlcoholimetrosEntity::class,
         CategoriaEntity::class,
         TipoFaltaEntity::class,
         TipoVehiculoEntity::class,
@@ -27,16 +30,19 @@ import androidx.room.Room
         TipoProvinciaEntity::class,
         TipoLocalidadEntity::class,
         TipoActaEntity::class,
-        QuincenaEntity::class
+        QuincenaEntity::class,
+        CheckVehicularEntity::class,
+        TipoVehiculoCheckEntity::class,
     ],
-    version = 12,
+    version = 15,
     exportSchema = false // Recomendado para proyectos simples
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun actaDao(): ActaDao
-    abstract fun categoriaDao(): CategoriaDao
     abstract fun catalogoDao(): CatalogoDao // 👈 Agregamos el acceso al DAO de catálogos
+
+    abstract fun puntoSecuenciaDao(): PuntoSecuenciaDao
 
     companion object {
         // @Volatile asegura que el valor de INSTANCE sea siempre actual para todos los hilos

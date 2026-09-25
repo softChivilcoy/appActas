@@ -64,6 +64,9 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         Configuration.getInstance().userAgentValue = requireContext().packageName
         super.onViewCreated(view, savedInstanceState)
 
+        // Cargar datos preexistentes si es una edición de borrador
+        cargarDatosUbicacionDesdeViewModel()
+
         // 1. 🛠️ PASO PRIMARIO: Recuperamos lo que haya en el ViewModel de entrada
         latitudActual = actaViewModel.latitud ?: 0.0
         longitudActual = actaViewModel.longitud ?: 0.0
@@ -136,19 +139,19 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
         // Cargamos el listado completo desde el XML de recursos de la App
         val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
-        //val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, callesChivilcoy)
-        //binding.acCalle.setAdapter(adapter)
 
         // 🚀 Pasamos una copia MUTABLE (ArrayList) al constructor para evitar el crash
         val listaSugerenciasMutables = ArrayList(callesChivilcoy.toList())
+
+        // Límite máximo de sugerencias a desplegar
+        val MAX_SUGERENCIAS = 5
 
         val adapter = object : ArrayAdapter<String>(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
             listaSugerenciasMutables
         ) {
-
-            // Mantenemos una referencia fija de todas las calles de la muni para filtrar
+            // Mantenemos una referencia fija de todas las calles para filtrar
             private val todasLasCalles = callesChivilcoy.toList()
 
             override fun getFilter(): android.widget.Filter {
@@ -157,15 +160,16 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
                         val results = FilterResults()
 
                         if (constraint.isNullOrEmpty()) {
-                            results.values = todasLasCalles
-                            results.count = todasLasCalles.size
+                            // Si el campo está vacío, no mostramos nada hasta que escriba 1 letra
+                            results.values = emptyList<String>()
+                            results.count = 0
                         } else {
                             val busqueda = constraint.toString().lowercase(Locale.getDefault()).trim()
 
-                            // Buscamos cualquier coincidencia parcial (el "77" o el "SESSION")
+                            // Buscamos coincidencias parciales y aplicamos el acotamiento con .take()
                             val sugerenciasFiltradas = todasLasCalles.filter { calle ->
                                 calle.lowercase(Locale.getDefault()).contains(busqueda)
-                            }
+                            }.take(MAX_SUGERENCIAS) // 👈 ACÁ LIMITAMOS EL LISTADO A 6
 
                             results.values = sugerenciasFiltradas
                             results.count = sugerenciasFiltradas.size
@@ -175,12 +179,13 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
                     @Suppress("UNCHECKED_CAST")
                     override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                        // 🎯 Ahora que la lista interna es un ArrayList, no va a explotar acá:
                         clear()
                         if (results != null && results.count > 0) {
                             addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
                         }
-                        notifyDataSetChanged()
                     }
                 }
             }
@@ -190,32 +195,27 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         binding.acCalle.setAdapter(adapter)
 
 
-        // 🚀 BLOQUE DE VALIDACIÓN ESTRICTA:
-        binding.acCalle.onFocusChangeListener = View.OnFocusChangeListener { view, hasFocus ->
-            // Nos interesa cuando PIERDE el foco (hasFocus == false)
+        // 🚀 BLOQUE DE VALIDACIÓN ESTRICTA Y MANEJO DE FOCO:
+        binding.acCalle.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
             if (!hasFocus) {
                 val textoIngresado = binding.acCalle.text.toString().trim()
 
-                // Si el campo está vacío, no hacemos nada (que actúe el validador normal al guardar)
                 if (textoIngresado.isNotEmpty()) {
-
                     // Verificamos si el texto exacto existe en la lista de calles oficiales
                     val existeCalle = callesChivilcoy.any { calle ->
                         calle.equals(textoIngresado, ignoreCase = true)
                     }
 
                     if (!existeCalle) {
-                        // Opción A: Le borrás el texto para obligarlo a elegir bien
                         binding.acCalle.setText("")
-
-                        // Opción B: Le mostrás un error visual en el campo
                         binding.acCalle.error = "Seleccioná una calle válida de la lista"
-
-                        // Opcional: Podés mandarle un Toast rápido para que sepa qué pasó en la madrugada
-                        Toast.makeText(requireContext(), "Calle no oficial. Seleccioná una de la lista sugerida.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            requireContext(),
+                            "Calle no oficial. Seleccioná una de la lista sugerida.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     } else {
-                        // Si existe pero lo escribió con diferencias de mayúsculas,
-                        // se lo corregimos al formato oficial de la lista
+                        // Si existe pero lo escribió con diferencias de mayúsculas, se corrige
                         val calleOficial = callesChivilcoy.first { it.equals(textoIngresado, ignoreCase = true) }
                         binding.acCalle.setText(calleOficial)
                     }
@@ -224,7 +224,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         }
 
         // --- 2. LÓGICA DE OPERATIVO (SOLO TRÁNSITO) ---
-        if (actaViewModel.tipoActa == TipoActa.TRANSITO) {
+        if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) {
             binding.layoutOperativoContainer.visibility = View.VISIBLE
             binding.cvEjidoUrbano.visibility = View.VISIBLE
         } else {
@@ -299,7 +299,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         binding.btnSiguienteUbicacion.setOnClickListener {
             if (validarCamposUbicacion()) {
                 guardarDatosUbicacion()
-                if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     findNavController().navigate(R.id.action_ubicacion_to_procedimiento)
                 } else {
                     findNavController().navigate(R.id.action_ubicacion_to_faltas)
@@ -327,7 +327,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         val calle = binding.acCalle.text.toString().trim()
         val altura = binding.etAlturaUbicacion.text.toString().trim()
 
-        if (actaViewModel.tipoActa == TipoActa.TRANSITO) {
+        if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) {
             val ejidoSeleccionado = binding.rgEjidoUrbano.checkedRadioButtonId
             if (ejidoSeleccionado == -1) {
                 Toast.makeText(context, "Por favor, especifique si está DENTRO o FUERA del ejido urbano", Toast.LENGTH_SHORT).show()
@@ -534,5 +534,37 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         // Verifica si el GPS satelital o la ubicación por red/redes móviles están activos
         return locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
                 locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+    }
+
+    private fun cargarDatosUbicacionDesdeViewModel() {
+        // Si no es un borrador o está vacío, no hace nada
+        if (actaViewModel.esNuevaActa && actaViewModel.calle.isEmpty()) return
+
+        // 1. Calle y Altura
+        binding.acCalle.setText(actaViewModel.calle, false)
+        val alturaTexto = when (val alt = actaViewModel.altura) {
+            null, 0 -> ""
+            else -> alt.toString()
+        }
+        binding.etAlturaUbicacion.setText(alturaTexto)
+
+        // 2. Ejido Urbano
+        when (actaViewModel.ejidoUrbano) {
+            0 -> binding.rgEjidoUrbano.check(R.id.rbEjidoDentro)
+            1 -> binding.rgEjidoUrbano.check(R.id.rbEjidoFuera)
+            else -> binding.rgEjidoUrbano.clearCheck()
+        }
+
+        // 3. Detalles adicionales (Piso/Depto y Referencia)
+        binding.etDeptoUbicacion.setText(actaViewModel.ubDepto)
+        binding.etReferenciaUbicacion.setText(actaViewModel.ubReferencia)
+
+        // 4. Activar Switch y contenedor si cuenta con detalles adicionales
+        val tieneDetalles = actaViewModel.ubTieneDetalleAdicional ||
+                actaViewModel.ubDepto.isNotEmpty() ||
+                actaViewModel.ubReferencia.isNotEmpty()
+
+        binding.swDetalleUbicacion.isChecked = tieneDetalles
+        //binding.layoutDetallesAdicionales.visibility = if (tieneDetalles) View.VISIBLE else View.GONE
     }
 }

@@ -6,10 +6,9 @@ data class DatosTransitoDto(
     @SerializedName("vehiculo") val vehiculo: VehiculoDto?,
     @SerializedName("retencion_licencia") val retencionLicencia: Boolean,
     @SerializedName("retencion_vehiculo") val retencionVehiculo: Boolean,
-    @SerializedName("secuestro_inventario") val secuestroInventario: String?,
-    @SerializedName("alcoholemia") val alcoholemia: AlcoholemiaDto? // 👈 Objeto anidado con el blindaje
+    @SerializedName("alcoholemia") val alcoholemia: AlcoholemiaDto?,
+    @SerializedName("secuestro") val secuestro: SecuestroDto? // 👈 Agregado
 )
-
 data class VehiculoDto(
     @SerializedName("dominio_patente") val dominioPatente: String,
     @SerializedName("marca") val marca: String?,
@@ -23,5 +22,15 @@ data class AlcoholemiaDto(
     @SerializedName("marca_alcoholimetro") val marcaAlcoholimetro: String,
     @SerializedName("modelo_alcoholimetro") val modeloAlcoholimetro: String,
     @SerializedName("nro_serie_alcoholimetro") val nroSerieAlcoholimetro: String,
-    @SerializedName("cod_aprobacion_alcoholimetro") val codAprobacionAlcoholimetro: String
+    @SerializedName("cod_aprobacion_alcoholimetro") val codAprobacionAlcoholimetro: String,
+    @SerializedName("alcoholimetro_id") val alcoholimetroId: Int
+)
+
+data class SecuestroDto(
+    @SerializedName("items") val items: List<SecuestroChecklistDto> = emptyList()
+)
+
+data class SecuestroChecklistDto(
+    @SerializedName("codigo") val codigoClave: String,
+    @SerializedName("val") val valor: String
 )

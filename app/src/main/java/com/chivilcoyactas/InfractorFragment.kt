@@ -3,6 +3,7 @@ package com.chivilcoyactas
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.os.Bundle
+import android.text.InputFilter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +16,7 @@ import com.chivilcoyactas.databinding.FragmentInfractorBinding
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import android.util.Log
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlinx.coroutines.launch
 
 class InfractorFragment : Fragment() {
@@ -45,7 +47,7 @@ class InfractorFragment : Fragment() {
 
         (activity as? MainActivity)?.actualizarProgreso(3)
 
-        val esInspeccion = actaViewModel.tipoActa == TipoActa.INSPECCION
+        val esInspeccion = actaViewModel.tipoFormulario == TipoFormulario.INSPECCION
 
         if (esInspeccion) {
             binding.layoutVinculo.visibility = View.VISIBLE
@@ -56,6 +58,35 @@ class InfractorFragment : Fragment() {
             binding.layoutVinculo.visibility = View.GONE
             binding.layoutSoloTransito.visibility = View.VISIBLE
             binding.tvTituloDatos1.text = "DATOS DEL INFRACTOR"
+        }
+
+        val autoFilterUpper = InputFilter.AllCaps()
+
+        binding.etCalle.filters = arrayOf(autoFilterUpper)
+
+        val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
+        val adapterCalles = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            callesChivilcoy
+        )
+
+        val etDomicilio = binding.etCalle as MaterialAutoCompleteTextView
+
+        // 1. Asignar el adaptador de sugerencias
+        etDomicilio.setAdapter(adapterCalles)
+
+        // 2. FORZAR que sea editable y muestre el teclado normalmente
+        etDomicilio.keyListener = android.text.method.TextKeyListener.getInstance()
+
+        // 3. Sugerir a partir de la primera letra tipeada
+        etDomicilio.threshold = 1
+
+        // 4. Si toca la flechita del desplegable, mostrar todas las sugerencias
+        etDomicilio.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && etDomicilio.text.isNullOrEmpty()) {
+                etDomicilio.showDropDown()
+            }
         }
 
         binding.btnEscanearDNI.setOnClickListener {
@@ -169,7 +200,7 @@ class InfractorFragment : Fragment() {
         }
 
         binding.btnVolver.setOnClickListener {
-            if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                 findNavController().navigate(R.id.action_infractor_to_procedimiento_VUELTA)
             } else {
                 findNavController().navigate(R.id.action_infractor_to_faltas_VUELTA)
@@ -204,7 +235,7 @@ class InfractorFragment : Fragment() {
 
             guardarDatosEnCaja()
 
-            if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                 (activity as? MainActivity)?.actualizarProgreso(4)
                 findNavController().navigate(R.id.action_infractor_to_faltas_inspeccion)
             } else {
@@ -270,7 +301,7 @@ class InfractorFragment : Fragment() {
 
         binding.etObservaciones.setText(actaViewModel.motivoDatos)
 
-        if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+        if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
             binding.spinnerVinculo.setText(actaViewModel.vinculoLugar, false)
 
             if (actaViewModel.vinculoLugar != "Propietario" && !actaViewModel.vinculoLugar.isNullOrBlank()) {

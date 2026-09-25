@@ -53,7 +53,7 @@ class FotosFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Ajustar el progreso en el MainActivity
-        val paso = if (actaViewModel.tipoActa == TipoActa.INSPECCION) 6 else 8
+        val paso = if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) 6 else 8
         (activity as? MainActivity)?.actualizarProgreso(paso)
 
         // --- INICIALIZACIÓN DE DATOS ---

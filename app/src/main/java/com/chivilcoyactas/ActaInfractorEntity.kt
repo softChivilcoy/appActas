@@ -35,5 +35,6 @@ data class ActaInfractorEntity(
     val nombreResponsable: String? = null,
     val dniResponsable: String? = null,
     val calleResponsable: String? = null,
-    val alturaResponsable: String? = null
+    val alturaResponsable: String? = null,
+    val firmaPath: String? = null
 )

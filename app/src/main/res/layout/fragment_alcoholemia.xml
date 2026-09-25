@@ -29,7 +29,7 @@
             android:text="Realizar Test de Alcoholemia"
             android:textSize="15sp"/>
 
-        <!-- 2. CARD DE TEST (Ubicado inmediatamente abajo de su CheckBox correspondiente) -->
+        <!-- 2. CARD DE TEST -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardTest"
             android:layout_width="match_parent"
@@ -60,21 +60,23 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:weightSum="2">
+
+                    <!-- DROPDOWN DE MARCA -->
                     <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:hint="Marca"
                         android:layout_marginEnd="4dp">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etAlcoMarca"
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/spinnerAlcoMarca"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapCharacters"
-                            android:imeOptions="actionNext"
-                            android:singleLine="true"/>
+                            android:inputType="none" />
                     </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- MODELO (SOLO LECTURA) -->
                     <com.google.android.material.textfield.TextInputLayout
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="0dp"
@@ -85,11 +87,13 @@
                             android:id="@+id/etAlcoModelo"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapCharacters"
+                            android:focusable="false"
+                            android:clickable="false"
                             android:singleLine="true"/>
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
+                <!-- N° DE SERIE (SOLO LECTURA) -->
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
@@ -100,9 +104,12 @@
                         android:id="@+id/etAlcoSerie"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="false"
                         android:singleLine="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- COD. DE APROBACION (SOLO LECTURA) -->
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
@@ -113,6 +120,8 @@
                         android:id="@+id/etAlcoAprobacion"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="false"
                         android:singleLine="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -122,7 +131,7 @@
                     android:background="#FFCDD2"
                     android:layout_marginVertical="16dp"/>
 
-                <!-- CAMBIO: Se eliminó la pipeta y el Resultado toma el ancho completo -->
+                <!-- RESULTADO -->
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"

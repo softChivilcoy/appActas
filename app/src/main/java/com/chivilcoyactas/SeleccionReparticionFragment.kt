@@ -1,21 +1,17 @@
 package com.chivilcoyactas
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.Toast
-import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.chivilcoyactas.databinding.FragmentSeleccionReparticionBinding
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
-import kotlin.getValue
 
 class SeleccionReparticionFragment : Fragment() {
 
@@ -35,37 +31,46 @@ class SeleccionReparticionFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Simulamos las reparticiones que vienen del login/ViewModel
-        val reparticiones = listOf("TRANSITO", "INSPECCION GENERAL")
+        // 1. Obtener las SharedPreferences
+        val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
 
+        // 2. Leer el nombre guardado en el login
+        val nombreInspector = prefs.getString("INSPECTOR_NOMBRE", "Inspector")
+
+        // 3. Setear el texto en el TextView
+        binding.tvBienvenida.text = "Bienvenido, ${nombreInspector?.lowercase()?.split(" ")?.joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }}"
+
+        val reparticiones = actaViewModel.listaReparticiones
         val container = binding.containerReparticiones
+        container.removeAllViews()
 
-        reparticiones.forEach { nombre ->
-            val button = MaterialButton(
-                requireContext(),
-                null,
-                com.google.android.material.R.attr.materialButtonStyle
-            ).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 0, 16) }
+        if (reparticiones.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "No hay reparticiones asignadas", Toast.LENGTH_LONG).show()
+            return
+        }
 
-                text = nombre
-                textSize = 18f
-                setPadding(16, 40, 16, 40)
-                cornerRadius = 12
+        /*reparticiones.forEach { opcion ->
+            val button = MaterialButton(requireContext()).apply {
+
+                // Texto claro para el inspector: "DIRECCIÓN DE TRÁNSITO - INFRACCIÓN"
+                text = if (!opcion.tipoActaNombre.isNullOrBlank()) {
+                    "${opcion.nombre} • ${opcion.tipoActaNombre}"
+                } else {
+                    opcion.nombre
+                }
 
                 setOnClickListener {
-                    // 1. Guardamos la elección
-                    actaViewModel.reparticionActual = nombre
+                    // 1. Guardamos el ID real de la repartición y el ID REAL del tipo de acta (3 o 6)
+                    actaViewModel.idReparticionSeleccionada = opcion.id             // ej: 1 (Tránsito)
+                    actaViewModel.idTipoActaSeleccionada = opcion.tipoActaId        // 👈 Asigna 3 o 6 (¡asegurarse de no hardcodear 1 aquí!)
 
-                    // 2. Decidimos a dónde ir según la repartición
-                    if (nombre == "TRANSITO") {
+                    actaViewModel.reparticionActual = opcion.nombre
+
+                    // 2. Evaluamos el layout a abrir ("TRANSITO" o "INSPECCION")
+                    val moduloUI = opcion.formulario?.uppercase() ?: "TRANSITO"
+
+                    if (moduloUI == "TRANSITO") {
                         actaViewModel.tipoActa = TipoActa.TRANSITO
-                        //findNavController().navigate(R.id.action_login_to_seleccionReparticion)
-                        // Nota: Asegurate que el ID coincida con el Action del nav_graph
-                        // Si seguiste mi consejo anterior, los IDs son estos:
                         findNavController().navigate(R.id.action_seleccion_to_configAlco)
                     } else {
                         actaViewModel.tipoActa = TipoActa.INSPECCION
@@ -74,6 +79,61 @@ class SeleccionReparticionFragment : Fragment() {
                 }
             }
             container.addView(button)
+        }*/
+
+        reparticiones.forEach { opcion ->
+            val button = MaterialButton(requireContext()).apply {
+                text = opcion.nombre
+
+                setOnClickListener {
+                    val tiposActaDisponibles = opcion.tiposActa
+
+                    // 🛑 VALIDACIÓN CLAVE: Si la repartición no tiene tipos de acta asignados, dar aviso y frenar
+                    //"${opcion.nombre}"
+                    if (tiposActaDisponibles.isNullOrEmpty()) {
+                        Toast.makeText(
+                            requireContext(),
+                            "La repartición no tiene tipos de actas asignadas.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnClickListener
+                    }
+
+                    // 1. GUARDAR REPARTICIÓN EN SHAREDPREFERENCES
+                    prefs.edit().apply {
+                        putInt("REPARTICION_ID", opcion.id)
+                        putString("REPARTICION_NOMBRE", opcion.nombre)
+                        apply()
+                    }
+
+                    actaViewModel.idReparticionSeleccionada = opcion.id
+                    actaViewModel.reparticionActual = opcion.nombre
+                    actaViewModel.listaTiposActaDisponibles = tiposActaDisponibles
+
+                    // Evaluamos el formulario del primer tipo de acta disponible
+                    val primerTipoActa = tiposActaDisponibles.first()
+                    val moduloUI = primerTipoActa.formulario?.uppercase() ?: "TRANSITO"
+
+                    if (moduloUI == "TRANSITO") {
+                        actaViewModel.tipoFormulario = TipoFormulario.TRANSITO
+                        actaViewModel.idTipoActaSeleccionada = primerTipoActa.id
+
+                        findNavController().navigate(R.id.action_seleccion_to_configAlco)
+                    } else {
+                        actaViewModel.tipoFormulario = TipoFormulario.INSPECCION
+
+                        actaViewModel.idTipoActaSeleccionada = primerTipoActa.id
+
+                        findNavController().navigate(R.id.action_seleccion_to_hojaRuta)
+                    }
+                }
+            }
+            container.addView(button)
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

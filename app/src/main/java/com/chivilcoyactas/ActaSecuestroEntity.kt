@@ -18,9 +18,6 @@ import androidx.room.PrimaryKey
 data class ActaSecuestroEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val actaId: Long,
-    val numeroMotor: String?,
-    val numeroChasis: String?,
-    val estadoCentralObservaciones: String?,
-    val incluyoInterior: Boolean = false,
-    val inventarioSerializado: String
+    val codigoClave: String,
+    val valor: String
 )

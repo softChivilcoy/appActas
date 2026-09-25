@@ -31,5 +31,7 @@ data class ActaTestigoEntity(
     val dniVerificado: String? = null,
     val nombreVerificado: String? = null,
     val domicilioVerificado: String? = null,
-    val estadoVerificacion: String = "PENDIENTE" // PENDIENTE, VALIDO, ERRONEO
+    val estadoVerificacion: String = "PENDIENTE", // PENDIENTE, VALIDO, ERRONEO
+
+    val firmaPath: String? = null
 )

@@ -17,6 +17,11 @@ import androidx.navigation.fragment.findNavController
 import com.chivilcoyactas.databinding.FragmentConfiguracionAlcoBinding
 import com.chivilcoyactas.databinding.FragmentExitoBinding
 import kotlin.getValue
+import android.widget.ArrayAdapter
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco) {
 
@@ -39,6 +44,9 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
     private val pathFirma = Path()
     private var haFirmado = false // Flag para obligar a que dibuje
 
+    private var listaEquipos: List<AlcoholimetrosEntity> = emptyList()
+
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -56,111 +64,58 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Ocultamos la barra de progreso en el MainActivity
         (activity as? MainActivity)?.setProgressBarVisibility(false)
-
-        // 🧹 Limpieza de seguridad: nos aseguramos de que no haya firmas viejas en memoria
         SessionManager.limpiaFirma(requireContext())
 
+        // 1. Configurar Visibilidad del Card con el Switch
         binding.switchHabilitarAlco.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 binding.tvEstadoAlco.text = "Sí"
-                binding.tvEstadoAlco.setTextColor(Color.parseColor("#33BB66")) // Verde cuando es Sí
-
+                binding.tvEstadoAlco.setTextColor(Color.parseColor("#33BB66"))
                 binding.cardDatosEquipo.visibility = View.VISIBLE
                 binding.cardDatosEquipo.alpha = 0f
                 binding.cardDatosEquipo.animate().alpha(1f).setDuration(300).start()
             } else {
                 binding.tvEstadoAlco.text = "No"
-                binding.tvEstadoAlco.setTextColor(Color.parseColor("#777777")) // Gris cuando es No
-
+                binding.tvEstadoAlco.setTextColor(Color.parseColor("#777777"))
                 binding.cardDatosEquipo.visibility = View.GONE
             }
         }
 
+        // 2. Cargar el listado de alcoholímetros desde el ViewModel
+        cargarListaAlcoholimetros()
 
-        // 🛠️ CONFIGURACIÓN DEL LIENZO DE FIRMA
-        /*binding.signaturePadInspector.post {
-            // Inicializamos el bitmap del tamaño exacto que tomó el View en la pantalla del 3nStar
-            val ancho = binding.signaturePadInspector.width
-            val alto = binding.signaturePadInspector.height
-            if (ancho > 0 && alto > 0) {
-                bitmapFirma = Bitmap.createBitmap(ancho, alto, Bitmap.Config.ARGB_8888)
-                canvasFirma = Canvas(bitmapFirma)
-                canvasFirma.drawColor(Color.WHITE) // Fondo blanco de base
+        // 3. Listener cuando el inspector selecciona un equipo del desplegable
+        binding.etConfigMarca.setOnItemClickListener { _, _, position, _ ->
+            if (position in listaEquipos.indices) {
+                val equipoSeleccionado = listaEquipos[position]
+                completarCamposEquipo(equipoSeleccionado)
             }
         }
 
-        // Detectar el arrastre del dedo por la pantalla
-        binding.signaturePadInspector.setOnTouchListener { v, event ->
-            val x = event.x
-            val y = event.y
-
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    pathFirma.moveTo(x, y)
-                    return@setOnTouchListener true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    pathFirma.lineTo(x, y)
-                    haFirmado = true // El usuario ya interactuó y dibujó algo
-                    canvasFirma.drawPath(pathFirma, paintFirma)
-
-                    // Forzar al View a redibujarse mostrando el trazo
-                    val drawable = android.graphics.drawable.BitmapDrawable(resources, bitmapFirma)
-                    binding.signaturePadInspector.background = drawable
-                }
-                MotionEvent.ACTION_UP -> {
-                    pathFirma.reset()
-                }
-            }
-            v.performClick()
-            true
-        }
-
-        // Botón para borrar el lienzo entero
-        binding.btnLimpiarFirma.setOnClickListener {
-            if (::canvasFirma.isInitialized) {
-                canvasFirma.drawColor(Color.WHITE) // Pintamos todo de blanco encima
-                binding.signaturePadInspector.background = null
-                haFirmado = false
-                pathFirma.reset()
-            }
-        }*/
-
+        // 4. Confirmar y guardar configuración de turno
         binding.btnGuardarConfig.setOnClickListener {
             if (binding.switchHabilitarAlco.isChecked) {
                 val marca = binding.etConfigMarca.text.toString().trim()
                 val modelo = binding.etConfigModelo.text.toString().trim()
                 val serie = binding.etConfigSerie.text.toString().trim()
-
+                val homologacion = binding.etConfigAprobacion.text.toString().trim()
 
                 if (marca.isEmpty() || modelo.isEmpty() || serie.isEmpty()) {
-                    Toast.makeText(requireContext(), "Debe cargar todos los campos", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Debe seleccionar un equipo válido", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
                 SessionManager.guardarAlcoholimetro(
                     requireContext(),
                     marca,
-                    binding.etConfigModelo.text.toString().trim(),
-                    serie
+                    modelo,
+                    serie,
+                    homologacion
                 )
             } else {
-                // Si el switch está apagado, nos aseguramos de que no queden datos viejos
                 SessionManager.limpiarDatos(requireContext())
             }
-
-            /*if (!haFirmado) {
-                Toast.makeText(requireContext(), "Por favor, registre su firma para poder iniciar el turno.", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-
-            // Guardar la firma en Base64 para usarla en todas las actas del viaje
-            val firmaBase64 = convertirBitmapABase64(bitmapFirma)
-
-            // Guardamos en tu SessionManager (asumiendo que tenés una función para persistir la sesión)
-            SessionManager.guardarFirmaInspector(requireContext(), firmaBase64)*/
 
             actaViewModel.resetearActa()
             findNavController().navigate(R.id.action_configAlco_to_step1)
@@ -173,20 +128,36 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
         }
     }
 
-    // Función auxiliar para transformar el dibujo en un String liviano de texto
-    private fun convertirBitmapABase64(bitmap: Bitmap): String {
-        val outputStream = java.io.ByteArrayOutputStream()
-        // Comprimimos un poco en PNG para mantener la transparencia u opacidad del trazo
-        bitmap.compress(Bitmap.CompressFormat.PNG, 90, outputStream)
-        val byteArray = outputStream.toByteArray()
-        return android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
+    private fun cargarListaAlcoholimetros() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(requireContext()) // Ajustá con tu clase de BD
+            val equiposDb = db.catalogoDao().obtenerAlcoholimetros()
+
+            withContext(Dispatchers.Main) {
+                listaEquipos = equiposDb
+
+                if (listaEquipos.isNotEmpty()) {
+                    // Usamos "nroSerie" en lugar de "serie"
+                    val nombresEquipos = listaEquipos.map { "${it.marca ?: "Sin Marca"} (Serie: ${it.nroSerie ?: "S/C"})" }
+
+                    val adapter = ArrayAdapter(
+                        requireContext(),
+                        android.R.layout.simple_dropdown_item_1line,
+                        nombresEquipos
+                    )
+                    binding.etConfigMarca.setAdapter(adapter)
+                } else {
+                    Toast.makeText(requireContext(), "No hay alcoholímetros cargados", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
-    private fun cargarDatosPrevios() {
-        val datos = SessionManager.obtenerAlcoholimetro(requireContext())
-        binding.etConfigMarca.setText(datos["marca"])
-        binding.etConfigModelo.setText(datos["modelo"])
-        binding.etConfigSerie.setText(datos["serie"])
+    private fun completarCamposEquipo(equipo: AlcoholimetrosEntity) {
+        binding.etConfigMarca.setText("${equipo.marca ?: ""} (Serie: ${equipo.nroSerie ?: "S/C"})", false)
+        binding.etConfigModelo.setText(equipo.modelo ?: "")
+        binding.etConfigSerie.setText(equipo.nroSerie ?: "")
+        binding.etConfigAprobacion.setText(equipo.codHomologacion ?: "")
     }
 
     override fun onDestroyView() {

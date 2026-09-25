@@ -152,7 +152,7 @@
                     android:id="@+id/etNombre"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPersonName" />
+                    android:inputType="textCapCharacters|textNoSuggestions" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -225,7 +225,9 @@
                     android:id="@+id/autoCompleteProvincia"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textCapWords"
+                    android:inputType="textCapCharacters"
+                    android:completionThreshold="1"
+                    android:dropDownHeight="220dp"
                     android:text="BUENOS AIRES"
                     android:imeOptions="actionNext"
                     android:singleLine="true" />
@@ -250,8 +252,10 @@
                         android:id="@+id/autoCompleteLocalidad"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textCapWords"
+                        android:inputType="textCapCharacters"
                         android:text="CHIVILCOY"
+                        android:completionThreshold="1"
+                        android:dropDownHeight="220dp"
                         android:imeOptions="actionNext"
                         android:singleLine="true" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -279,17 +283,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:weightSum="3">
+
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
                     android:hint="Calle"
                     android:layout_marginEnd="4dp">
-                    <com.google.android.material.textfield.TextInputEditText
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/etCalle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:completionThreshold="1"
+                        android:dropDownHeight="220dp"
                         android:inputType="textCapCharacters"
                         android:imeOptions="actionNext"
                         android:singleLine="true" />

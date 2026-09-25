@@ -121,22 +121,27 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:id="@+id/tilCalle"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Domicilio (Calle / Avenida)"
             android:layout_marginBottom="16dp"
-            app:startIconDrawable="@android:drawable/ic_menu_directions"
+            android:hint="Domicilio (Calle / Avenida)"
             app:boxStrokeColor="#33BB66"
-            app:hintTextColor="#33BB66">
+            app:hintTextColor="#33BB66"
+            app:startIconDrawable="@android:drawable/ic_menu_directions"
+            app:endIconMode="clear_text"> <!-- 👈 Activa la (X) para borrar todo -->
 
             <AutoCompleteTextView
                 android:id="@+id/acCalle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapWords"
                 android:completionThreshold="1"
-                android:padding="16dp" />
+                android:dropDownHeight="220dp"
+                android:inputType="textCapWords"
+                android:padding="16dp"
+                android:selectAllOnFocus="true" /> <!-- 👈 Selecciona todo al hacer foco -->
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Campo de Altura/Número (Siempre visible, clave para Catastro y multas) -->
@@ -282,16 +287,6 @@
                 android:src="@android:drawable/ic_menu_mylocation"
                 app:tint="#FF3333" />
 
-           <!-- <View
-                android:id="@+id/mapView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                 android:background="#DDDDDD"/>
-                -->
-        <!--<com.google.android.gms.maps.MapView
-            android:id="@+id/mapView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />-->
     </com.google.android.material.card.MaterialCardView>
 
     <!-- Este View con peso 1 empuja al botón hacia abajo en pantallas grandes -->

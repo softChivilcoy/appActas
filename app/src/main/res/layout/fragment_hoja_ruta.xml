@@ -41,12 +41,54 @@
             app:cornerRadius="8dp" />
     </RelativeLayout>
 
-    <!-- Lista de Actas -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvHojaRuta"
+    <!-- Contenedor Principal (Lista y Empty State) -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        android:layout_height="match_parent">
+
+        <!-- Lista de Actas -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvHojaRuta"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false" />
+
+        <!-- 🚀 Estado Vacío (Empty State) -->
+        <LinearLayout
+            android:id="@+id/layoutEmptyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@android:drawable/ic_menu_agenda"
+                app:tint="#999999" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No tenés borradores pendientes"
+                android:textColor="#333333"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Presioná '+ NUEVA ACTA' para comenzar"
+                android:textColor="#777777"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+    </FrameLayout>
 
 </LinearLayout>

@@ -1,6 +1,7 @@
 package com.chivilcoyactas
 
 import android.os.Bundle
+import android.text.InputFilter
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -12,6 +13,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.chivilcoyactas.databinding.FragmentTestigosBinding
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.launch
@@ -42,10 +44,58 @@ class TestigosFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Ajustar el número de paso según el área
-        if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+        if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
             (activity as? MainActivity)?.actualizarProgreso(5)
         } else {
             (activity as? MainActivity)?.actualizarProgreso(7)
+        }
+
+        val autoFilterUpper = InputFilter.AllCaps()
+
+        binding.etTestigo1Domicilio.filters = arrayOf(autoFilterUpper)
+        binding.etTestigo2Domicilio.filters = arrayOf(autoFilterUpper)
+
+        val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
+        val adapterCalles = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            callesChivilcoy
+        )
+
+        val etDomicilio = binding.etTestigo1Domicilio as MaterialAutoCompleteTextView
+
+        // 1. Asignar el adaptador de sugerencias
+                etDomicilio.setAdapter(adapterCalles)
+
+        // 2. FORZAR que sea editable y muestre el teclado normalmente
+                etDomicilio.keyListener = android.text.method.TextKeyListener.getInstance()
+
+        // 3. Sugerir a partir de la primera letra tipeada
+                etDomicilio.threshold = 1
+
+        // 4. Si toca la flechita del desplegable, mostrar todas las sugerencias
+                etDomicilio.setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus && etDomicilio.text.isNullOrEmpty()) {
+                        etDomicilio.showDropDown()
+                    }
+                }
+
+        val etDomicilioDos = binding.etTestigo2Domicilio as MaterialAutoCompleteTextView
+
+        // 1. Asignar el adaptador de sugerencias
+        etDomicilioDos.setAdapter(adapterCalles)
+
+        // 2. FORZAR que sea editable y muestre el teclado normalmente
+        etDomicilioDos.keyListener = android.text.method.TextKeyListener.getInstance()
+
+        // 3. Sugerir a partir de la primera letra tipeada
+        etDomicilioDos.threshold = 1
+
+        // 4. Si toca la flechita del desplegable, mostrar todas las sugerencias
+        etDomicilioDos.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && etDomicilioDos.text.isNullOrEmpty()) {
+                etDomicilioDos.showDropDown()
+            }
         }
 
         // 1. Lógica del botón Agregar
@@ -121,6 +171,33 @@ class TestigosFragment : Fragment() {
             }
         }
 
+        // =========================================================
+        // 🔄 HELPER PARA CONFIGURAR LOCALIDADES
+        // =========================================================
+        fun configurarAutoCompleteLocalidad(
+            autoCompleteView: MaterialAutoCompleteTextView,
+            nombresLocalidades: List<String>
+        ) {
+            val adapterLocalidad = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_dropdown_item_1line,
+                nombresLocalidades
+            )
+
+            autoCompleteView.setAdapter(adapterLocalidad)
+            autoCompleteView.threshold = 1
+
+            // Forzar que despliegue la lista al hacer clic o ganar foco
+            autoCompleteView.setOnClickListener {
+                autoCompleteView.showDropDown()
+            }
+            autoCompleteView.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    autoCompleteView.showDropDown()
+                }
+            }
+        }
+
         // --- LÓGICA TESTIGO 1 ---
         binding.autoCompleteTestigo1Provincia.setOnItemClickListener { parent, _, position, _ ->
             val provSeleccionada = parent.getItemAtPosition(position).toString()
@@ -129,14 +206,27 @@ class TestigosFragment : Fragment() {
             val objetoProvincia = actaViewModel.todasLasProvincias.value?.find { it.nombre.uppercase() == provSeleccionada }
             val provinciaId = objetoProvincia?.id ?: 0
 
-            binding.autoCompleteTestigo1Localidad.text.clear()
+            // Limpiamos el texto sin disparar filtros
+            binding.autoCompleteTestigo1Localidad.setText("", false)
             actaViewModel.Testigo1Localidad = ""
 
             lifecycleScope.launch {
-                val localidadesFiltradas = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerLocalidadesPorProvincia(provinciaId)
+                val localidadesFiltradas = AppDatabase.getDatabase(requireContext())
+                    .catalogoDao()
+                    .obtenerLocalidadesPorProvincia(provinciaId)
+
                 val nombresLocalidades = localidadesFiltradas.map { it.nombre.uppercase() }
-                val adapterLocalidad = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresLocalidades)
-                binding.autoCompleteTestigo1Localidad.setAdapter(adapterLocalidad)
+
+                // Aplicamos la configuración con el helper
+                configurarAutoCompleteLocalidad(
+                    binding.autoCompleteTestigo1Localidad as MaterialAutoCompleteTextView,
+                    nombresLocalidades
+                )
+
+                // Si el usuario ya estaba parado sobre el campo, desplegar de inmediato
+                if (binding.autoCompleteTestigo1Localidad.hasFocus()) {
+                    binding.autoCompleteTestigo1Localidad.showDropDown()
+                }
             }
         }
 
@@ -157,14 +247,24 @@ class TestigosFragment : Fragment() {
             val objetoProvincia = actaViewModel.todasLasProvincias.value?.find { it.nombre.uppercase() == provSeleccionada }
             val provinciaId = objetoProvincia?.id ?: 0
 
-            binding.autoCompleteTestigo2Localidad.text.clear()
+            binding.autoCompleteTestigo2Localidad.setText("", false)
             actaViewModel.Testigo2Localidad = ""
 
             lifecycleScope.launch {
-                val localidadesFiltradas = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerLocalidadesPorProvincia(provinciaId)
+                val localidadesFiltradas = AppDatabase.getDatabase(requireContext())
+                    .catalogoDao()
+                    .obtenerLocalidadesPorProvincia(provinciaId)
+
                 val nombresLocalidades = localidadesFiltradas.map { it.nombre.uppercase() }
-                val adapterLocalidad = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresLocalidades)
-                binding.autoCompleteTestigo2Localidad.setAdapter(adapterLocalidad)
+
+                configurarAutoCompleteLocalidad(
+                    binding.autoCompleteTestigo2Localidad as MaterialAutoCompleteTextView,
+                    nombresLocalidades
+                )
+
+                if (binding.autoCompleteTestigo2Localidad.hasFocus()) {
+                    binding.autoCompleteTestigo2Localidad.showDropDown()
+                }
             }
         }
 
@@ -194,14 +294,14 @@ class TestigosFragment : Fragment() {
             actaViewModel.Testigo1Dni = binding.etTestigo1Dni.text.toString()
             actaViewModel.Testigo1Nombre = binding.etTestigo1Nombre.text.toString()
             actaViewModel.Testigo1Provincia = binding.autoCompleteTestigo1Provincia.text.toString()
-            actaViewModel.Testigo1Domicilio = binding.etTestigo1Domicilio.text.toString()
+            actaViewModel.Testigo1Domicilio = binding.etTestigo1Domicilio.text.toString().uppercase()
             actaViewModel.Testigo1Localidad = binding.autoCompleteTestigo1Localidad.text.toString()
             actaViewModel.Testigo1Cp = binding.etTestigo1Cp.text.toString()
 
             actaViewModel.Testigo2Dni = binding.etTestigo2Dni.text.toString()
             actaViewModel.Testigo2Nombre = binding.etTestigo2Nombre.text.toString()
             actaViewModel.Testigo2Provincia = binding.autoCompleteTestigo2Provincia.text.toString()
-            actaViewModel.Testigo2Domicilio = binding.etTestigo2Domicilio.text.toString()
+            actaViewModel.Testigo2Domicilio = binding.etTestigo2Domicilio.text.toString().uppercase()
             actaViewModel.Testigo2Localidad = binding.autoCompleteTestigo2Localidad.text.toString()
             actaViewModel.Testigo2Cp = binding.etTestigo2Cp.text.toString()
 
@@ -233,6 +333,26 @@ class TestigosFragment : Fragment() {
         binding.etTestigo2Domicilio.setText(actaViewModel.Testigo2Domicilio)
         binding.autoCompleteTestigo2Localidad.setText(actaViewModel.Testigo2Localidad, false)
         binding.etTestigo2Cp.setText(actaViewModel.Testigo2Cp)
+    }
+
+    override fun onPause() {
+        super.onPause()
+
+        // Testigo 1
+        actaViewModel.Testigo1Dni = binding.etTestigo1Dni.text.toString().trim()
+        actaViewModel.Testigo1Nombre = binding.etTestigo1Nombre.text.toString().trim()
+        actaViewModel.Testigo1Provincia = binding.autoCompleteTestigo1Provincia.text.toString().trim()
+        actaViewModel.Testigo1Domicilio = binding.etTestigo1Domicilio.text.toString().trim()
+        actaViewModel.Testigo1Localidad = binding.autoCompleteTestigo1Localidad.text.toString().trim()
+        actaViewModel.Testigo1Cp = binding.etTestigo1Cp.text.toString().trim()
+
+        // Testigo 2
+        actaViewModel.Testigo2Dni = binding.etTestigo2Dni.text.toString().trim()
+        actaViewModel.Testigo2Nombre = binding.etTestigo2Nombre.text.toString().trim()
+        actaViewModel.Testigo2Provincia = binding.autoCompleteTestigo2Provincia.text.toString().trim()
+        actaViewModel.Testigo2Domicilio = binding.etTestigo2Domicilio.text.toString().trim()
+        actaViewModel.Testigo2Localidad = binding.autoCompleteTestigo2Localidad.text.toString().trim()
+        actaViewModel.Testigo2Cp = binding.etTestigo2Cp.text.toString().trim()
     }
 
     private fun parsearDatosDNI(datos: String) {

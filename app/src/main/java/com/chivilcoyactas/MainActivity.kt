@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         binding.tvProgreso.visibility = View.VISIBLE
 
-        val totalPasos = if (actaViewModel.tipoActa == TipoActa.INSPECCION) 7 else 9
+        val totalPasos = if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) 7 else 9
         binding.tvProgreso.text = "Paso $pasoActual de $totalPasos"
         binding.progressBar.progress = pasoActual
         binding.progressBar.max = totalPasos

@@ -15,8 +15,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.liveData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-enum class TipoActa { TRANSITO, INSPECCION }
+enum class TipoFormulario { TRANSITO, INSPECCION }
 
 data class Infraccion(val id: Int = 0,val codigo: String, val nombre: String)
 
@@ -25,14 +26,36 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
     // Lista maestra cargada desde la DB local al inicio
 
+    var modoSecuestroDerivado: Boolean
+        get() {
+            TODO()
+        }
+        set(value) {}
+    var firmaInfractorPath: String? = null
+    var firmaTestigoPath: String? = null
+    var infractorSeNiegaAFirmar: Boolean = false
+    var procTipoInmueble: String = ""
+    var idActaLocal: Long = 0L
+
     // Instanciamos Room usando el 'application' que ahora sí tenemos disponible
     private val db = AppDatabase.getDatabase(application)
     private val catalogoDao = db.catalogoDao()
+
+    var tipoFormulario: TipoFormulario = TipoFormulario.TRANSITO
 
     // Este bloque ahora va a compilar en verde perfecto 🚀
     val todasLasFaltas = liveData(viewModelScope.coroutineContext) {
         emit(catalogoDao.obtenerListaFaltasDirecta())
     }
+
+    var listaReparticiones: List<ReparticionDto> = emptyList()
+    //var reparticionActual: String = ""
+
+
+    // 2. ID de la repartición seleccionada (AGREGAR ESTA LÍNEA)
+    var idReparticionSeleccionada: Int? = null
+    var idTipoActaSeleccionada: Int? = null // tipoacta / tipo_acta_id real (1, 2, 3...)
+
 
     // 1. Cargamos de Room los catálogos para vehículos
     val todosLosTiposVehiculo = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
@@ -43,10 +66,6 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         emit(db.catalogoDao().obtenerTodasLasMarcas()) // Agregá este método a tu DAO si falta
     }
 
-    // 2. Variables para guardar los IDs reales elegidos para mandar a Laravel
-    var idTipoVehiculoSeleccionado: Int = 0
-    var idMarcaSeleccionada: Int = 0
-    var idModeloSeleccionado: Int = 0
 
     // 1. Exponemos las provincias para el primer combo
     val todasLasProvincias = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
@@ -66,7 +85,10 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     // Agregá esta línea:
     var reparticionActual: String = ""
 
-    var tipoActa: TipoActa = TipoActa.TRANSITO // Por defecto
+    var listaTiposActaDisponibles: List<TipoActaDto> = emptyList()
+
+
+    var tipoActa: Int? = null
     var nroActa: String = ""
     var idSistema: String = ""
 
@@ -76,6 +98,16 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var nro: String = ""
     var nombreInfractor: String = ""
     var esNuevaActa: Boolean = false
+
+    //-------------------------------------------
+    //LOGIN
+
+    var secuenciaActual: Int = 0
+    var androidId: String = ""
+    var serie: String = "E"
+    var anio: Int = java.time.Year.now().value
+    var puntoEmisionId: Int = 0 // Si Laravel te devuelve el ID del punto de emisión en el Login
+
 
     // --- PASO 1: UBICACIÓN ---
     var esOperativo: Boolean = false
@@ -147,9 +179,15 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- PASO 4: VEHÍCULO ---
     var tipoVehiculo: String = ""
+    var idTipoVehiculoSeleccionado: Int? = null
+
     var dominio: String = ""
     var marca: String = ""
+    var idMarcaSeleccionada: Int? = null
+
     var modelo: String = ""
+    var idModeloSeleccionado: Int? = null
+
     var esPropietario: Boolean = true
 
     var procedimientoVeh: String = ""
@@ -157,10 +195,12 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     // ---- PASO 5 : ALCOHOLEMIA --
 
     var hacerTestAlcoholemia: Boolean = false
-    var alcoMarca: String = ""
-    var alcoModelo: String = ""
-    var alcoSerie: String = ""
-    var alcoAprobacion: String = ""
+
+    var alcoholimetroId: Int? = null
+    var alcoMarca: String? = ""
+    var alcoModelo: String? = ""
+    var alcoSerie: String? = ""
+    var alcoAprobacion: String? = ""
     var ftResultado: Double = 0.0
     var seAdjuntaPlanillaMedica: Boolean = false
 
@@ -169,13 +209,15 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var retencionLicencia: Boolean = false
     var retencionAnimal: Boolean = false
 
+    //SECUESTRO
+
+    var tipoVehiculoIdSelected: Int = 0 // El ID numérico del vehículo seleccionado en la pantalla previa (ej. Auto=1, Moto=2)
+    val inventarioDinamico = mutableMapOf<String, String>() // Key: codigoClave -> Value: Respuesta ingresada
+
     // ---- PASO 6 : ALCOHOLEMIA --
     var inventarioSecuestro = mutableMapOf<String, String>()
     // Guardará algo como: "Batería" -> "S-B" (Presente y Bueno)
     var incluyoInterior: Boolean = false
-    var numeroMotor: String = ""
-    var numeroChasis: String = ""
-    var estadoCentral: String = ""
 
 
     //  --- PASO 7 : TESTIGOS --
@@ -208,11 +250,43 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var observaciones: String = ""
     //var fotosRutas: MutableList<String> = mutableListOf() // Rutas de las fotos en el celu
 
-    // Lista persistente de fotos
-    private val _listaFotos = MutableLiveData<MutableList<Bitmap>>(mutableListOf())
-    val listaFotos: LiveData<MutableList<Bitmap>> get() = _listaFotos
+    // Mantenemos la lista como LiveData de List<Bitmap> (inmutable hacia afuera)
+    private val _listaFotos = MutableLiveData<List<Bitmap>>(emptyList())
+    val listaFotos: LiveData<List<Bitmap>> get() = _listaFotos
 
-    fun agregarFoto(bitmap: Bitmap) {
+    // 🚀 1. Para cargar las fotos recuperadas de la BD al abrir un Borrador
+    fun setListaFotos(nuevasFotos: List<Bitmap>) {
+        _listaFotos.value = nuevasFotos
+    }
+
+    // 🚀 2. Eliminar foto creando una nueva copia para notificar a la UI
+    fun eliminarFoto(index: Int) {
+        val listaActual = _listaFotos.value?.toMutableList() ?: return
+        if (index in listaActual.indices) {
+            listaActual.removeAt(index)
+            _listaFotos.value = listaActual // Emite la nueva lista mutable modificada
+        }
+    }
+
+    // 🚀 3. Agregar foto desde la cámara
+    fun agregarFotoDesdeUri(context: Context, uri: android.net.Uri) {
+        try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bitmapReal = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+
+            if (bitmapReal != null) {
+                val listaActual = _listaFotos.value?.toMutableList() ?: mutableListOf()
+                listaActual.add(bitmapReal)
+                _listaFotos.value = listaActual // Forzamos a LiveData a emitir el cambio
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+
+    /*fun agregarFoto(bitmap: Bitmap) {
         // Redimensionamos a un tamaño razonable para un acta (ej: 1024px el lado más largo)
         val width = 1024
         val height = (bitmap.height * (width.toDouble() / bitmap.width)).toInt()
@@ -221,40 +295,27 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         val listaActual = _listaFotos.value ?: mutableListOf()
         listaActual.add(bitmapReducido)
         _listaFotos.value = listaActual
-    }
+    }*/
 
-    fun eliminarFoto(index: Int) {
-        val listaActual = _listaFotos.value ?: mutableListOf()
-        if (index in listaActual.indices) {
-            listaActual.removeAt(index)
-            _listaFotos.value = listaActual
-        }
-    }
-
-    fun agregarFotoDesdeUri(context: Context, uri: android.net.Uri) {
-        try {
-            // Leemos el archivo real que guardó la cámara
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val bitmapReal = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
-
-            if (bitmapReal != null) {
-                val listaActual = _listaFotos.value ?: mutableListOf()
-
-                // 🚀 NO REDUCIMOS A 1024 ACÁ. Dejamos que mantenga la resolución nativa alta.
-                listaActual.add(bitmapReal)
-                _listaFotos.value = listaActual
+    fun obtenerAlcoholimetros(context: Context, callback: (List<AlcoholimetrosEntity>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(context) // Adaptá según el nombre de tu BD
+            val lista = db.catalogoDao().obtenerAlcoholimetros()
+            withContext(Dispatchers.Main) {
+                callback(lista)
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
-
 
     /**
      * Limpia los datos para empezar un acta de cero
      */
     fun resetearActa() {
+        idActaLocal = 0L
+        secuenciaActual = 0
+        serie = "E"
+        anio = 0
+
         nroActa = ""
         idSistema = ""
         codigoValidacion = ""
@@ -336,11 +397,10 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         retencionVehiculo = false
         retencionLicencia = false
         retencionAnimal = false
+        tipoVehiculoIdSelected = 0
+        inventarioDinamico.clear()
         inventarioSecuestro.clear()
         incluyoInterior = false
-        numeroMotor = ""
-        numeroChasis = ""
-        estadoCentral = ""
         Testigo1Dni = ""
         Testigo1Nombre = ""
         Testigo1Domicilio = ""

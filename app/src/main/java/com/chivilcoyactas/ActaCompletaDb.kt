@@ -34,7 +34,7 @@ data class ActaCompletaDb(
     val medidasPreventivas: ActaMedidaPreventivaEntity?,
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
-    val secuestro: ActaSecuestroEntity?,
+    val secuestro: List<ActaSecuestroEntity>,
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
     val procedimiento: ActaProcedimientoEntity?,

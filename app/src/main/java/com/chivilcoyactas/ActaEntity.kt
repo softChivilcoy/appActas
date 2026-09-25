@@ -7,7 +7,8 @@ import androidx.room.PrimaryKey
 data class ActaEntity(
     @PrimaryKey(autoGenerate = true) val idLocal: Long = 0,
     val idServer: Long? = null,              // ID que devuelve Laravel al sincronizar
-    val tipoActa: String,                    // "TRANSITO" o "INSPECCION"
+    val nroActa: String,
+    val tipoActa: Int,
     val idInspector: Int,
     val fecha: String,                       // yyyy-MM-dd
     val hora: String,                        // HH:mm
@@ -19,10 +20,16 @@ data class ActaEntity(
 
     // 🚀 NUEVOS CAMPOS DE UBICACIÓN Y CONTEXTO MUNICIPAL
     val esOperativo: Boolean = false,        // True si pertenece a un operativo especial
-    val ejidoUrbano: Int,                 // "Chivilcoy", "Moquehuá", "Ruta 5", etc.
+    val ejidoUrbano: Int,                   // "Chivilcoy", "Moquehuá", "Ruta 5", etc.
     val nombreCalle: String,                 // Guardamos la calle limpia del autocomplete
     val alturaCalle: Int?,                   // Altura numérica (puede ser null si es una esquina/ruta)
     val detallePiso: String? = null,         // "Piso 2 Depto B" (más usado en inspección de comercios/obras)
     val detalleReferencia: String? = null,   // "Entre Pellegrini y Mitre" o "Frente a la escuela 1"
-    val idJuzgado: Int? = null               // Juzgado de Faltas asignado (si se define en la app)
+    val idJuzgado: Int? = null,               // Juzgado de Faltas asignado (si se define en la app)
+    val idReparticion: Int? = null,              // Reparticion del Inspector
+    val detalleFalta: String? = null,                      //
+    val serie: String = "E",
+    val puntoEmisionId: Int = 0,
+    val anio: Int,
+    val secuencia: Int,
 )

@@ -9,7 +9,9 @@ object RetrofitClient {
 
     // 🌐 NOTA: Cuando tengan el servidor de desarrollo, cambian esta IP por la real.
     // Si prueban local con la compu en la misma red WiFi, usan la IP de su máquina (ej: 192.168.1.50)
-    private const val BASE_URL = "http://127.0.0.1:8000/" // "10.0.2.2" apunta al localhost de la PC desde el emulador de Android
+    //http://127.0.0.1:8000/
+    //http://130.131.132.22/
+    private const val BASE_URL = "http://127.0.0.1:8080/" // "10.0.2.2" apunta al localhost de la PC desde el emulador de Android
 
     val apiService: ActaApiService by lazy {
         // 🕵️‍♂️ Creamos el interceptor y le decimos que nos muestre todo el CUERPO (BODY) del mensaje

@@ -1,15 +1,24 @@
 package com.chivilcoyactas
 
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.InputType
+import android.view.Gravity
 import android.view.LayoutInflater
-import android.widget.TextView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.content.ContextCompat
+import androidx.core.view.children
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.chivilcoyactas.databinding.FragmentSecuestroBinding
+import com.google.android.material.switchmaterial.SwitchMaterial
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SecuestroFragment : Fragment() {
 
@@ -17,23 +26,8 @@ class SecuestroFragment : Fragment() {
     private val binding get() = _binding!!
     private val actaViewModel: ActaViewModel by activityViewModels()
 
-    // Definimos los arrays (esto luego vendrá de la BD)
-    private val itemsMotor = arrayOf("Bocina", "Freno de Emergencia", "Bujías", "Alternador", "Distribuidor", "Radiador", "Batería", "Tapa de Aceite", "Varilla de Aceite")
-    private val itemsExterior = arrayOf("Capot", "Guardabarros Del. Der.", "Guardabarros Del. Izq.", "Luneta", "Tapa Baúl", "Puerta Delantera", "Parabrisas", "Rueda de Auxilio")
-    private val itemsInterior = arrayOf("Volante", "Estéreo", "Alfombra", "Cinturones", "Espejo Int.", "Tablero", "Guantera")
-
-    // Nuevos arrays para Motos/Cuatris
-    private val itemsMoto = arrayOf(
-        "Llave de contacto", "Guard. Trasero", "Guard. Delantero",
-        "Espejo Retrov. Der.", "Espejo Retrov. Izq.", "Luz Trasera",
-        "Luz Delantera", "Pedalin Delant. Der.", "Pedalin Delant. Izq.",
-        "Pedalin Trasero Der.", "Pedalin Trasero Izq.", "Tapa Apoya Pies Der.",
-        "Tapa Apoya Pies Izq.", "Giro Delant. Der.", "Giro Delant. Izq.",
-        "Giro Trasero Der.", "Giro Trasero Izq.", "Asiento Individual",
-        "Asiento Enterizo", "Pie de sostén", "Escape c/ Silenciador",
-        "Escape s/ Silenciador", "Tapa de Combustible"
-    )
-    private val estadosOp = arrayOf("B (Bueno)", "M (Malo)", "S/D (Sin Datos)")
+    // Mapa para rastrear las Views dinámicas vinculadas a su codigo_clave
+    private val mapaViewsCampos = mutableMapOf<String, View>()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -47,147 +41,281 @@ class SecuestroFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         (activity as? MainActivity)?.actualizarProgreso(6)
 
-        val tipo = actaViewModel.tipoVehiculo
+        binding.tvTituloSecuestro.text = "📋 ACTA DE SECUESTRO: INVENTARIO"
 
-        if (tipo.contains("MOTO") || tipo.contains("CICLO") || tipo.contains("CUATRI")) {
-            // --- MODO MOTO ---
-            binding.tvTituloSecuestro.text = "SECUESTRO: MOTOCICLETA / OTROS"
-
-            // Ocultamos secciones de autos que no sirven
-            binding.cardInterior.visibility = View.GONE
-            binding.checkIncluirInterior.visibility = View.GONE
-
-            // Poblamos con los datos de moto en el contenedor que prefieras
-            // Por ejemplo, usamos el de 'Motor' para todo el inventario de moto
-            poblarSeccion(binding.containerMotor, itemsMoto)
-
-            // Ocultamos el contenedor de exterior de autos para que no se duplique
-            binding.containerExterior.removeAllViews()
-            binding.cardExterior.visibility = View.GONE
-
-        } else {
-            // --- MODO AUTO (Lo que ya tenías) ---
-            binding.tvTituloSecuestro.text = "SECUESTRO: VEHÍCULO"
-            binding.cardExterior.visibility = View.VISIBLE
-
-            poblarSeccion(binding.containerMotor, itemsMotor)
-            poblarSeccion(binding.containerExterior, itemsExterior)
-            poblarSeccion(binding.containerInterior, itemsInterior)
-        }
-       // recuperarCamposEspeciales()
+        // Restablecer campos estáticos
 
 
-        // Recuperar estado del check interior
-        binding.checkIncluirInterior.isChecked = actaViewModel.incluyoInterior
-        binding.cardInterior.visibility = if (actaViewModel.incluyoInterior) View.VISIBLE else View.GONE
-
+        // Toggle para la sección de Interior (si aplica)
         binding.checkIncluirInterior.setOnCheckedChangeListener { _, isChecked ->
             binding.cardInterior.visibility = if (isChecked) View.VISIBLE else View.GONE
-            actaViewModel.incluyoInterior = isChecked
         }
 
+        // Cargar el inventario desde Room
+        cargarChecklistDinamico()
+
         binding.btnSiguienteSecuestro.setOnClickListener {
-            guardarInventario()
+            guardarInventarioDinamico()
             findNavController().navigate(R.id.action_secuestro_to_testigos)
         }
 
         binding.btnVolverSecuestro.setOnClickListener {
-            guardarInventario() // Guardamos antes de volver por las dudas
+            guardarInventarioDinamico()
             findNavController().navigateUp()
         }
 
-        // Ocultar teclado al tocar fuera de los campos
         binding.scrollSecuestro.setOnTouchListener { _, _ ->
             (activity as? MainActivity)?.hideKeyboard()
             false
         }
     }
 
-    private fun poblarSeccion(container: LinearLayout, items: Array<String>) {
-        container.removeAllViews()
+    private fun cargarChecklistDinamico() {
+        val tipoVehiculoId = actaViewModel.idTipoVehiculoSeleccionado ?: 0
 
-        items.forEach { nombre ->
-            val itemView = LayoutInflater.from(requireContext()).inflate(R.layout.item_inventario, container, false)
-            itemView.tag = nombre
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(requireContext())
+            var itemsChecklist = db.catalogoDao().obtenerChecklistPorTipoVehiculo(tipoVehiculoId)
 
-            val tvNombre = itemView.findViewById<TextView>(R.id.tvNombreItem)
-            val check = itemView.findViewById<CheckBox>(R.id.checkPresente)
-            val rgEstado = itemView.findViewById<RadioGroup>(R.id.rgEstado)
-
-            tvNombre.text = nombre
-
-            // Recuperar datos previos
-            val datosPrevios = actaViewModel.inventarioSecuestro[nombre]
-            if (datosPrevios != null && datosPrevios.contains("|")) {
-                val partes = datosPrevios.split("|")
-                check.isChecked = (partes[0] == "S")
-
-                // Mapeamos el string guardado al RadioButton correspondiente
-                when (partes[1]) {
-                    "B (Bueno)" -> rgEstado.check(R.id.rbBueno)
-                    "M (Malo)" -> rgEstado.check(R.id.rbMalo)
-                    else -> rgEstado.check(R.id.rbSD)
-                }
-            } else {
-                check.isChecked = true
-                rgEstado.check(R.id.rbBueno) // Default: Bueno
+            // FALLBACK DE SEGURIDAD:
+            if (itemsChecklist.isEmpty()) {
+                itemsChecklist = db.catalogoDao().obtenerTodosLosChecklist()
             }
 
-            // Si el ítem no está presente, desactivamos los RadioButtons
-            rgEstado.isEnabled = check.isChecked
-            for (i in 0 until rgEstado.childCount) {
-                rgEstado.getChildAt(i).isEnabled = check.isChecked
+            withContext(Dispatchers.Main) {
+                renderizarInventario(itemsChecklist)
             }
-
-            check.setOnCheckedChangeListener { _, isChecked ->
-                for (i in 0 until rgEstado.childCount) {
-                    rgEstado.getChildAt(i).isEnabled = isChecked
-                }
-            }
-
-            container.addView(itemView)
         }
     }
-    private fun guardarInventario() {
-        // 1. Limpiamos el mapa para no duplicar datos viejos
-        actaViewModel.inventarioSecuestro.clear()
 
-        actaViewModel.numeroMotor = binding.etNumeroMotor.text.toString().trim()
-        actaViewModel.numeroChasis = binding.etNumeroChasis.text.toString().trim()
-        actaViewModel.estadoCentral = binding.etEstadoCentral.text.toString().trim()
+    private fun renderizarInventario(items: List<CheckVehicularEntity>) {
+        mapaViewsCampos.clear()
 
-        // 2. Procesamos cada contenedor usando la función de abajo
-        extraerDeContenedor(binding.containerMotor)
-        extraerDeContenedor(binding.containerExterior)
+        binding.containerMotor.removeAllViews()
+        binding.containerExterior.removeAllViews()
+        binding.containerInterior.removeAllViews()
 
-        // 3. Condicional para el interior
-        if (binding.checkIncluirInterior.isChecked) {
-            extraerDeContenedor(binding.containerInterior)
+        // Agrupamos por sector ordenado por orden_ui
+        val agrupadosPorSector = items
+            .sortedBy { it.ordenUi }
+            .groupBy { it.sectorVehiculo?.uppercase() ?: "EXTERIOR" }
+
+        // 1. MOTOR / BAÚL MOTOR
+        val itemsMotor = (agrupadosPorSector["BAUL_MOTOR"] ?: emptyList()) + (agrupadosPorSector["MOTOR"] ?: emptyList())
+        if (itemsMotor.isNotEmpty()) {
+            binding.cardMotor.visibility = View.VISIBLE
+            itemsMotor.forEach { item ->
+                val viewCampo = crearControlDinamico(item)
+                binding.containerMotor.addView(viewCampo)
+                mapaViewsCampos[item.codigoClave] = viewCampo
+            }
+        } else {
+            binding.cardMotor.visibility = View.GONE
         }
 
-        actaViewModel.incluyoInterior = binding.checkIncluirInterior.isChecked
+        // 2. EXTERIOR
+        val itemsExterior = agrupadosPorSector["EXTERIOR"] ?: emptyList()
+        if (itemsExterior.isNotEmpty()) {
+            binding.cardExterior.visibility = View.VISIBLE
+            itemsExterior.forEach { item ->
+                val viewCampo = crearControlDinamico(item)
+                binding.containerExterior.addView(viewCampo)
+                mapaViewsCampos[item.codigoClave] = viewCampo
+            }
+        } else {
+            binding.cardExterior.visibility = View.GONE
+        }
+
+        // 3. INTERIOR (Automóviles u otros con habitáculo)
+        val itemsInterior = agrupadosPorSector["INTERIOR"] ?: emptyList()
+        if (itemsInterior.isNotEmpty()) {
+            binding.checkIncluirInterior.visibility = View.VISIBLE
+            binding.cardInterior.visibility = if (binding.checkIncluirInterior.isChecked) View.VISIBLE else View.GONE
+
+            itemsInterior.forEach { item ->
+                val viewCampo = crearControlDinamico(item)
+                binding.containerInterior.addView(viewCampo)
+                mapaViewsCampos[item.codigoClave] = viewCampo
+            }
+        } else {
+            // Si es Moto o no tiene ítems de interior, se oculta completamente esta sección
+            binding.checkIncluirInterior.visibility = View.GONE
+            binding.cardInterior.visibility = View.GONE
+        }
     }
 
-    private fun extraerDeContenedor(container: LinearLayout) {
-        for (i in 0 until container.childCount) {
-            val view = container.getChildAt(i)
-            val nombre = view.tag as? String ?: ""
+    private fun crearControlDinamico(item: CheckVehicularEntity): View {
+        val valorPrevio = actaViewModel.inventarioDinamico[item.codigoClave]
 
-            if (nombre.isNotEmpty()) {
-                val check = view.findViewById<CheckBox>(R.id.checkPresente)
-                val rgEstado = view.findViewById<RadioGroup>(R.id.rgEstado)
+        return when (item.tipoDato.uppercase()) {
 
-                val estaPresente = if (check.isChecked) "S" else "N"
-
-                // IMPORTANTE: Mantenemos el formato exacto para tu backend PHP en Chivilcoy
-                val estado = when (rgEstado.checkedRadioButtonId) {
-                    R.id.rbBueno -> "B (Bueno)"
-                    R.id.rbMalo -> "M (Malo)"
-                    else -> "S/D (Sin Datos)"
+            "LISTA", "OPCIONES" -> {
+                val itemLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 8, 0, 16)
+                    }
                 }
 
-                actaViewModel.inventarioSecuestro[nombre] = "$estaPresente|$estado"
+                val tvTitulo = TextView(requireContext()).apply {
+                    text = item.etiquetaVisible
+                    textSize = 14f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    setPadding(0, 4, 0, 8)
+                }
+                itemLayout.addView(tvTitulo)
+
+                val radioGroup = RadioGroup(requireContext()).apply {
+                    orientation = RadioGroup.HORIZONTAL
+                    weightSum = 3f
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }
+
+                // Limpieza de cadena de opciones enviada por la BD
+                val opcionesLimpia = item.opcionesLista
+                    ?.replace("[", "")
+                    ?.replace("]", "")
+                    ?.replace("\"", "")
+                    ?.trim()
+
+                val opciones = if (!opcionesLimpia.isNullOrEmpty()) {
+                    opcionesLimpia.split(",").map { it.trim() }
+                } else {
+                    listOf("Bueno", "Malo", "Sin datos")
+                }
+
+                opciones.forEachIndexed { index, opcion ->
+                    val radioButton = RadioButton(requireContext()).apply {
+                        id = View.generateViewId()
+                        text = opcion
+                        textSize = 13f
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = RadioGroup.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            1f
+                        )
+
+                        // Mantenimiento de estado previo
+                        if (valorPrevio != null) {
+                            if (valorPrevio.equals(opcion, ignoreCase = true)) {
+                                isChecked = true
+                            }
+                        } else if (index == 0) { // Por defecto el primero (ej: Bueno)
+                            isChecked = true
+                        }
+                    }
+                    radioGroup.addView(radioButton)
+                }
+
+                itemLayout.addView(radioGroup)
+
+                // Separador tenue
+                val divider = View(requireContext()).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        1
+                    ).apply { setMargins(0, 8, 0, 0) }
+                    setBackgroundColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                    alpha = 0.3f
+                }
+                itemLayout.addView(divider)
+
+                itemLayout
+            }
+
+            "BOOLEAN" -> {
+                SwitchMaterial(requireContext()).apply {
+                    text = item.etiquetaVisible
+                    textSize = 14f
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 4, 0, 8) }
+                    isChecked = valorPrevio == "S" || valorPrevio == "true"
+                }
+            }
+
+            "INTEGER", "NUMBER" -> {
+                LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 4, 0, 8) }
+
+                    val tvLabel = TextView(requireContext()).apply {
+                        text = item.etiquetaVisible
+                        textSize = 14f
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+
+                    val etInput = EditText(requireContext()).apply {
+                        hint = "0"
+                        inputType = InputType.TYPE_CLASS_NUMBER
+                        setText(valorPrevio ?: "")
+                        textSize = 14f
+                        layoutParams = LinearLayout.LayoutParams(180, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    }
+
+                    addView(tvLabel)
+                    addView(etInput)
+                }
+            }
+
+            else -> { // TEXT LIBRE
+                EditText(requireContext()).apply {
+                    hint = item.etiquetaVisible
+                    textSize = 14f
+                    setText(valorPrevio ?: "")
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 4, 0, 8) }
+                }
             }
         }
+    }
+
+    private fun guardarInventarioDinamico() {
+        actaViewModel.inventarioDinamico.clear()
+
+        mapaViewsCampos.forEach { (codigoClave, view) ->
+            val valor: String = when (view) {
+                is LinearLayout -> {
+                    val radioGroup = view.children.filterIsInstance<RadioGroup>().firstOrNull()
+                    val editText = view.children.filterIsInstance<EditText>().firstOrNull()
+
+                    if (radioGroup != null) {
+                        val selectedId = radioGroup.checkedRadioButtonId
+                        if (selectedId != -1) {
+                            radioGroup.findViewById<RadioButton>(selectedId)?.text?.toString() ?: ""
+                        } else ""
+                    } else if (editText != null) {
+                        editText.text.toString().trim()
+                    } else ""
+                }
+                is SwitchMaterial -> if (view.isChecked) "S" else "N"
+                is EditText -> view.text.toString().trim()
+                else -> ""
+            }
+
+            if (valor.isNotEmpty()) {
+                actaViewModel.inventarioDinamico[codigoClave] = valor
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

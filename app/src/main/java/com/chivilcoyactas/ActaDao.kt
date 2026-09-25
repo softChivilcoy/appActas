@@ -27,7 +27,7 @@ interface ActaDao {
     suspend fun insertarMedidasPreventivas(medidas: ActaMedidaPreventivaEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarSecuestro(secuestro: ActaSecuestroEntity)
+    suspend fun insertarSecuestro(secuestro: List<ActaSecuestroEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarTestigos(testigos: List<ActaTestigoEntity>)
@@ -77,4 +77,30 @@ interface ActaDao {
 
     @Delete
     suspend fun eliminarActa(acta: ActaEntity)
+
+    @Query("DELETE FROM acta_media WHERE actaId = :actaId")
+    suspend fun eliminarMediaPorActaId(actaId: Long)
+
+    // 🚀 Transacción para guardar/actualizar la sección de inspección completa
+    @Transaction
+    suspend fun guardarModuloInspeccion(
+        cabecera: ActaEntity,
+        procedimiento: ActaProcedimientoEntity?,
+        comercio: ActaComercioEntity?,
+        catastro: ActaCatastroEntity?
+    ) {
+        val idActa = insertarCabecera(cabecera)
+
+        procedimiento?.let {
+            insertarProcedimiento(it.copy(actaId = idActa))
+        }
+
+        if (comercio != null && !comercio.esVacio()) {
+            insertarComercio(comercio.copy(actaId = idActa))
+        }
+
+        if (catastro != null && !catastro.esVacio()) {
+            insertarCatastro(catastro.copy(actaId = idActa))
+        }
+    }
 }

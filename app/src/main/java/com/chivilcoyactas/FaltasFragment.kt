@@ -33,7 +33,7 @@ class FaltasFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Ajustar el número de paso según el área
-        if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+        if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
             (activity as? MainActivity)?.actualizarProgreso(4) // Es el paso 4 en Inspección
         } else {
             (activity as? MainActivity)?.actualizarProgreso(2) // Es el paso 2 en Tránsito
@@ -43,20 +43,53 @@ class FaltasFragment : Fragment() {
         // 1. Conectamos con el Catálogo Real de Room 🚀
         actaViewModel.todasLasFaltas.observe(viewLifecycleOwner) { listaFaltasRoom ->
 
-            val listaMaestra = listaFaltasRoom.map { "${it.codigo} - ${it.descripcion}" }
+            val listaMaestra = listaFaltasRoom.map { "${it.codigo} - ${it.descripcionCorta}" }
 
-            val adapter = ArrayAdapter(
+            // 🚀 ADAPTER PERSONALIZADO CON FILTRO "CONTAINS" CORREGIDO
+            val adapter = object : ArrayAdapter<String>(
                 requireContext(),
                 android.R.layout.simple_dropdown_item_1line,
-                listaMaestra
-            )
+                listaMaestra.toMutableList()
+            ) {
+                private val listaOriginal = ArrayList(listaMaestra)
+
+                override fun getFilter(): android.widget.Filter {
+                    return object : android.widget.Filter() {
+                        override fun performFiltering(constraint: CharSequence?): FilterResults {
+                            val results = FilterResults()
+
+                            // 🚀 Verificación de nulo o vacío corregida en Kotlin
+                            if (constraint.isNullOrEmpty()) {
+                                results.values = listaOriginal
+                                results.count = listaOriginal.size
+                            } else {
+                                val query = constraint.toString().trim().lowercase()
+                                val listaFiltrada = listaOriginal.filter { item ->
+                                    item.lowercase().contains(query) // Busca en números y texto por igual
+                                }
+                                results.values = listaFiltrada
+                                results.count = listaFiltrada.size
+                            }
+                            return results
+                        }
+
+                        @Suppress("UNCHECKED_CAST")
+                        override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                            clear()
+                            if (results != null && results.count > 0) {
+                                addAll(results.values as List<String>)
+                            }
+                            notifyDataSetChanged()
+                        }
+                    }
+                }
+            }
+
             binding.autoCompleteFaltas.setAdapter(adapter)
 
             // Captura del clic
             binding.autoCompleteFaltas.setOnItemClickListener { parent, _, position, _ ->
                 val seleccion = parent.getItemAtPosition(position).toString()
-
-                // 🚀 TRUCO: Le pasamos true indicando que viene de un clic forzado, saltando el chequeo del array
                 agregarFaltaLogica(seleccion, listaMaestra.toTypedArray(), esClicDirecto = true)
             }
 
@@ -143,11 +176,34 @@ class FaltasFragment : Fragment() {
             if (!yaExiste) {
                 binding.tvSinFaltas.visibility = View.GONE
 
-                val idReal = actaViewModel.todasLasFaltas.value?.find { it.codigo == codigoExtraido }?.id ?: 0
+                // 1. Buscamos el objeto completo desde la lista cargada de Room
+                val objetoFaltaRoom = actaViewModel.todasLasFaltas.value?.find { it.codigo == codigoExtraido }
+                val idReal = objetoFaltaRoom?.id ?: 0
+
                 val nuevaInfraccion = Infraccion(id = idReal, codigo = codigoExtraido, nombre = nombreExtraido)
 
                 actaViewModel.listaFaltasSeleccionadas.add(nuevaInfraccion)
                 dibujarFaltaEnPantalla(nuevaInfraccion)
+
+                // 2. 🚀 INSERCIÓN AUTOMÁTICA DE PLANTILLA EN OBSERVACIONES
+                objetoFaltaRoom?.descripcionPlantilla?.let { plantilla ->
+                    if (plantilla.isNotBlank()) {
+                        val textoActual = binding.ftObservaciones.text?.toString()?.trim() ?: ""
+
+                        val nuevoTexto = if (textoActual.isEmpty()) {
+                            plantilla
+                        } else {
+                            "$textoActual\n$plantilla"
+                        }
+
+                        // Actualizamos tanto la UI como el ViewModel
+                        binding.ftObservaciones.setText(nuevoTexto)
+                        actaViewModel.ftObservaciones = nuevoTexto
+
+                        // Posicionamos el cursor al final del texto cargado
+                        binding.ftObservaciones.setSelection(nuevoTexto.length)
+                    }
+                }
 
                 binding.autoCompleteFaltas.setText("")
             } else {
@@ -188,7 +244,7 @@ class FaltasFragment : Fragment() {
         }*/
 
         binding.btnVolverFaltas.setOnClickListener {
-            if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                 // En inspección, atrás de Faltas está el Infractor
                 findNavController().navigate(R.id.action_faltas_to_infractor_VUELTA)
             } else {
@@ -214,7 +270,7 @@ class FaltasFragment : Fragment() {
                 actaViewModel.ftObservaciones = binding.ftObservaciones.text.toString()
 
 
-                if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     findNavController().navigate(R.id.action_faltas_to_testigos)
                 } else {
                     findNavController().navigate(R.id.action_faltas_to_infractor)

@@ -21,4 +21,10 @@ data class ActaComercioEntity(
     val nombreComercio: String,
     val nroHabilitacionMunicipal: String?,
     val rubroComercio: String
-)
+){
+    fun esVacio(): Boolean {
+        return nombreComercio.isBlank() &&
+                nroHabilitacionMunicipal.isNullOrBlank() &&
+                rubroComercio.isBlank()
+    }
+}

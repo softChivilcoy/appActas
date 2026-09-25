@@ -34,31 +34,28 @@ class ExitoFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Bloquear el botón "Atrás" del sistema (Gesto o botón físico)
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
-            // Al dejarlo vacío, el botón de atrás no hace NADA.
-            // Opcionalmente podés mostrar un Toast:
-            // Toast.makeText(context, "El acta ya fue finalizada", Toast.LENGTH_SHORT).show()
-        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {}
 
         // 1. Simulación de datos
-        if (actaViewModel.nroActa.isEmpty()) {
+        /*if (actaViewModel.nroActa.isEmpty()) {
             val randomNro = (1000..9999).random()
             actaViewModel.nroActa = "0001-0000$randomNro"
             actaViewModel.idSistema = "#${(1000..5000).random()}"
 
             // Generamos el código de 5 dígitos solo si no existe
             actaViewModel.codigoValidacion = (10000..99999).random().toString()
-        }
+        }*/
 
         // 2. Mostrar datos en pantalla (Ahora binding ya no es nulo)
         binding.tvNroActaFinal.text = actaViewModel.nroActa
-        binding.tvIdSistema.text = "ID Sistema: ${actaViewModel.idSistema}"
+        binding.tvIdSistema.text = "Secuencia: ${actaViewModel.secuenciaActual}"
+        //binding.tvIdSistema.text = "ID Sistema: ${actaViewModel.idSistema}"
 
         // 3. Botón Nueva Acta
         binding.btnNuevaActa.setOnClickListener {
             actaViewModel.resetearActa() // O limpiarDatos(), según como lo llamaste
 
-            if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                 // --- FLUJO INSPECCIÓN ---
                 // Ocultamos la barra de progreso porque la Hoja de Ruta es un paso "0"
                 (activity as? MainActivity)?.findViewById<View>(R.id.progressBar)?.visibility = View.GONE

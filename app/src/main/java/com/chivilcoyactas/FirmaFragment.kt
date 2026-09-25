@@ -1,5 +1,6 @@
 package com.chivilcoyactas
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -15,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.github.gcacace.signaturepad.views.SignaturePad
-import androidx.activity.OnBackPressedCallback
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,7 +24,14 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.chivilcoyactas.net.SincronizacionWorker
+import java.io.File
 import java.util.Calendar
+import android.util.Log
+import androidx.work.BackoffPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkRequest
+import androidx.work.workDataOf
+import java.io.FileOutputStream
 
 class FirmaFragment : Fragment() {
 
@@ -92,10 +99,10 @@ class FirmaFragment : Fragment() {
         binding.btnIrAFirmar.setOnClickListener {
             if (binding.checkSeNiegaAFirmar.isChecked) {
                 // Si se niega, cerramos de una
-                if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     mostrarDialogoEstadoInspeccion()
                 } else {
-                    guardarYEnviarAlServidor("FINALIZADA")
+                    guardarYEnviarAlServidor("PENDIENTE")
                 }
             } else {
                 // Si no se niega, procedemos a que firme (testigo o infractor)
@@ -178,17 +185,16 @@ class FirmaFragment : Fragment() {
     }
 
     private fun actualizarEstadoBotonesSegunFirma() {
-        // Si el testigo ya firmó
-        if (actaViewModel.firmaTestigo != null) {
+        // Si el testigo ya firmó (comprobamos por ruta de archivo)
+        if (!actaViewModel.firmaTestigoPath.isNullOrEmpty()) {
             binding.btnFirmaTestigo.isEnabled = false
             binding.btnFirmaTestigo.text = "✅ TESTIGO FIRMÓ"
             binding.btnFirmaTestigo.setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9")) // Verde clarito
         }
 
         // Si el infractor ya firmó (o se negó)
-        if (actaViewModel.firmaInfractor != null || binding.checkSeNiegaAFirmar.isChecked) {
+        if (!actaViewModel.firmaInfractorPath.isNullOrEmpty() || binding.checkSeNiegaAFirmar.isChecked) {
             binding.btnFirmaInfractor.text = if (binding.checkSeNiegaAFirmar.isChecked) "NEGATIVA REGISTRADA" else "✅ INFRACTOR FIRMÓ"
-            // Aquí podrías decidir si deshabilitarlo o dejarlo por si quiere corregir la firma
         }
     }
 
@@ -233,38 +239,45 @@ class FirmaFragment : Fragment() {
             return
         }
 
-
-        // Guardar en el ViewModel
+        // 1. Si firmó, guardamos el Bitmap como archivo PNG y obtenemos la ruta
         if (!binding.signaturePad.isEmpty) {
-            val bitmapFirma = binding.signaturePad.signatureBitmap
+            val bitmapFirma = binding.signaturePad.transparentSignatureBitmap
+            val tipoFirma = if (esFirmaTestigo) "testigo" else "infractor"
+            val rutaGuardada = guardarFirmaEnDisco(bitmapFirma, tipoFirma)
+
             if (esFirmaTestigo) {
-                actaViewModel.firmaTestigo = bitmapFirma
-                // Usamos el nombre que ya viene del actaViewModel para ser consistentes
+                actaViewModel.firmaTestigoPath = rutaGuardada
                 actaViewModel.nombreTestigo = actaViewModel.Testigo1Nombre
             } else {
-                actaViewModel.firmaInfractor = bitmapFirma
+                actaViewModel.firmaInfractorPath = rutaGuardada
             }
+        } else if (seNiega) {
+            actaViewModel.infractorSeNiegaAFirmar = true
+            actaViewModel.firmaInfractorPath = null
         }
 
+        // 2. Lógica de transición de pantallas
         if (esFirmaTestigo) {
-            // VOLVER A PREPARACIÓN
+            // Limpiamos el Pad para que quede en blanco para el infractor
+            binding.signaturePad.clear()
+
+            // Volver a la pantalla de preparación
             binding.layoutModoFirma.visibility = View.GONE
             binding.layoutPreparacionFirma.visibility = View.VISIBLE
 
+            // Actualizar la interfaz (botón testigo en verde)
             actualizarEstadoBotonesSegunFirma()
 
-            // Cambiamos al infractor
+            // Cambiar el selector al Infractor (esto dispara el listener y pone esFirmaTestigo = false)
             binding.toggleGrupoFirmas.check(R.id.btnFirmaInfractor)
-            // IMPORTANTE: Al hacer el check arriba, el listener del Toggle
-            // se va a disparar y va a poner esFirmaTestigo = false automáticamente.
 
             Toast.makeText(context, "Firma de testigo guardada. Turno del infractor.", Toast.LENGTH_SHORT).show()
         } else {
-            // CIERRE DEFINITIVO
-            if (actaViewModel.tipoActa == TipoActa.INSPECCION) {
+            // Cierre definitivo
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                 mostrarDialogoEstadoInspeccion()
             } else {
-                guardarYEnviarAlServidor("FINALIZADA")
+                guardarYEnviarAlServidor("PENDIENTE")
             }
         }
     }
@@ -281,7 +294,7 @@ class FirmaFragment : Fragment() {
                         confirmarFinalizacionTotal()
                     }
                     1 -> { // Pendiente
-                        guardarYEnviarAlServidor("PENDIENTE")
+                        guardarYEnviarAlServidor("BORRADOR")
                     }
                 }
             }
@@ -294,15 +307,102 @@ class FirmaFragment : Fragment() {
             .setTitle("¿Confirmar envío al Juzgado?")
             .setMessage("Una vez finalizada, no podrá editar el acta desde la hoja de ruta.")
             .setPositiveButton("SÍ, FINALIZAR") { _, _ ->
-                guardarYEnviarAlServidor("FINALIZADA")
+                guardarYEnviarAlServidor("PENDIENTE")
             }
             .setNegativeButton("VOLVER", null)
             .show()
     }
 
-    private fun guardarYEnviarAlServidor(estado: String) {
+    suspend fun obtenerYSumaSecuencia(dao: PuntoSecuenciaDao, androidId: String, puntoCodigo: Int): PuntoSecuenciaEntity {
+        val anioActual = java.time.Year.now().value
+        var estado = dao.obtenerSecuenciaActual(androidId, anioActual)
+
+        if (estado == null) {
+            // Si no existe secuencia local para este año/dispositivo, inicializamos en 0
+            estado = PuntoSecuenciaEntity(
+                androidId = androidId,
+                serie = "E",
+                puntoCodigo = puntoCodigo,
+                anio = anioActual,
+                ultimaSecuencia = 0
+            )
+            dao.insertarOActualizar(estado)
+        }
+
+        if (estado.anio != anioActual) {
+            // Cambio de año -> reinicia secuencia a 0
+            estado = estado.copy(anio = anioActual, ultimaSecuencia = 0)
+            dao.insertarOActualizar(estado)
+        }
+
+        // Incrementar en 1 la secuencia
+        val nuevaSecuencia = estado.ultimaSecuencia + 1
+        dao.actualizarSecuencia(
+            androidId = androidId,
+            anio = anioActual,
+            nuevaSecuencia = nuevaSecuencia
+        )
+
+        return estado.copy(ultimaSecuencia = nuevaSecuencia)
+    }
+
+
+    object CalculadorActaHelper {
+
+        /**
+         * Replica la función PostgreSQL public.fn_calcular_dv_acta
+         */
+        fun calcularDigitoVerificador(puntoCodigo: Int, anio: Int, secuencia: Int): String {
+            // 1. Unificar a 16 caracteres con ceros a la izquierda
+            val puntoStr = puntoCodigo.toString().padStart(4, '0')
+            val anioStr = anio.toString().padStart(4, '0')
+            val secuenciaStr = secuencia.toString().padStart(8, '0')
+
+            val cadena = "$puntoStr$anioStr$secuenciaStr"
+
+            var factor = 2
+            var suma = 0
+
+            // 2. Multiplicación ponderada de derecha a izquierda (ciclo 2..7)
+            for (i in cadena.length - 1 downTo 0) {
+                val digito = cadena[i].digitToInt()
+                suma += digito * factor
+                factor++
+                if (factor > 7) {
+                    factor = 2
+                }
+            }
+
+            // 3. Aplicar Módulo 11
+            val resto = suma % 11
+            val dv = 11 - resto
+
+            // 4. Casos límite
+            return when (dv) {
+                11, 10 -> "0"
+                else -> dv.toString()
+            }
+        }
+
+        /**
+         * Conformar el identificador visible de 22 caracteres:
+         * [SERIE]-[PUNTO_4]-[ANIO_4]-[SECUENCIA_8]-[DV]
+         */
+        fun generarNroActa(serie: String, puntoCodigo: Int, anio: Int, secuencia: Int): String {
+            val dv = calcularDigitoVerificador(puntoCodigo, anio, secuencia)
+
+            val serieFormatted = serie.trim().uppercase()
+            val puntoFormatted = puntoCodigo.toString().padStart(4, '0')
+            val anioFormatted = anio.toString().padStart(4, '0')
+            val secuenciaFormatted = secuencia.toString().padStart(8, '0')
+
+            return "$serieFormatted-$puntoFormatted-$anioFormatted-$secuenciaFormatted-$dv"
+        }
+    }
+
+    private fun guardarYEnviarAlServidor(estadoActa: String) {
         val loadingDialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setMessage("Guardando acta localmente...")
+            .setMessage(if (estadoActa == "BORRADOR") "Guardando borrador..." else "Guardando acta...")
             .setCancelable(false)
             .create()
 
@@ -310,51 +410,117 @@ class FirmaFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val firmaBase64 = null //SessionManager.obtenerFirmaInspector(requireContext())
+                val firmaBase64 = null
                 val db = AppDatabase.getDatabase(requireContext())
 
-                // 1. Obtenemos la fecha y hora del momento exacto
+                // 1. Obtenemos fecha y hora
                 val ahora = Date()
                 actaViewModel.fecha = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(ahora)
                 actaViewModel.hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(ahora)
 
-                // 🚀 EXTRAEMOS EL DÍA DEL MES (Ejemplo: si es 24/06/2026, nos da el Int 24)
                 val calendar = Calendar.getInstance().apply { time = ahora }
                 val diaDelMes = calendar.get(Calendar.DAY_OF_MONTH)
 
-                // 🕵️‍♂️ CONSULTA OFFLINE: Buscamos el juzgado que corresponde en la tabla local
-                val juzgadoAsignado = db.catalogoDao().obtenerJuzgadoPorDia(diaDelMes) ?: 1 // Plan B: Juzgado 1
+                // Consulta offline del juzgado
+                val juzgadoAsignado = db.catalogoDao().obtenerJuzgadoPorDia(diaDelMes) ?: 1
 
-                // 1. Guardamos la Cabecera General
+                // Inspector y Punto de Emisión desde SharedPreferences
+                val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
+                val idInspectorLogueado = prefs.getInt("INSPECTOR_ID", -1)
+                val puntoEmisionIdLogueado = prefs.getInt("PUNTO_EMISION_ID", 0)
+                val puntoCodigoLogueado = prefs.getInt("PUNTO_EMISION_CODIGO", 0)
+                val androidIdLogueado = prefs.getString("DEVICE_ID", "") ?: ""
+
+                // 🚀 OBTENER REPARTICIÓN SELECCIONADA
+                val idReparticionSeleccionada = prefs.getInt("REPARTICION_ID", -1)
+
+                if (idReparticionSeleccionada == -1) {
+                    throw IllegalStateException("No hay una repartición seleccionada en la sesión")
+                }
+
+                val idTipoActa = actaViewModel.idTipoActaSeleccionada
+                    ?: throw IllegalStateException("No se seleccionó un tipo de acta válido")
+
+
+                val observacionesFalta= actaViewModel.ftObservaciones.trim().ifEmpty { null }
+
+                // GESTIÓN DE SECUENCIA Y SERIE
+                var serieActa = "E"
+                var anioActa = calendar.get(Calendar.YEAR)
+                var secuenciaActa = 0
+
+                if (actaViewModel.idActaLocal == 0L) {
+                    // 🚀 Si es acta nueva, incrementamos la secuencia en Room
+                    val secuenciaActualizada = obtenerYSumaSecuencia(
+                        dao = db.puntoSecuenciaDao(),
+                        androidId = androidIdLogueado,
+                        puntoCodigo = puntoCodigoLogueado
+                    )
+                    serieActa = secuenciaActualizada.serie
+                    anioActa = secuenciaActualizada.anio
+                    secuenciaActa = secuenciaActualizada.ultimaSecuencia // 👈 Secuencia corregida (ej: 1, 2, 3...)
+
+                    actaViewModel.secuenciaActual = secuenciaActa
+                    actaViewModel.serie = serieActa
+                    actaViewModel.anio = anioActa
+                } else {
+                    // Si se está editando un borrador local existente, mantenemos la secuencia ya asignada
+                    serieActa = actaViewModel.serie.ifEmpty { "E" }
+                    anioActa = if (actaViewModel.anio > 0) actaViewModel.anio else calendar.get(Calendar.YEAR)
+                    secuenciaActa = actaViewModel.secuenciaActual
+                }
+
+                // 🚀 Generar el número de acta con la secuencia actualizada y punto de emisión dinámico
+                val nroActaGenerado = CalculadorActaHelper.generarNroActa(
+                    serie = serieActa,
+                    puntoCodigo = puntoCodigoLogueado,
+                    anio = anioActa,
+                    secuencia = secuenciaActa
+                )
+
+                actaViewModel.nroActa = nroActaGenerado
+                actaViewModel.puntoEmisionId = puntoEmisionIdLogueado
+
+                // 1. Guardamos Cabecera General
                 val nuevaActa = ActaEntity(
-                    tipoActa = actaViewModel.tipoActa.name,
-                    idInspector = 1,
+                    // 🚀 AHORA SÍ: Si ya veníamos editando un borrador (idActaLocal > 0), mantenemos ese ID.
+                    // Si idActaLocal es 0 (acta totalmente nueva), SQLite le generará un ID nuevo.
+                    idLocal = if (actaViewModel.idActaLocal > 0) actaViewModel.idActaLocal else 0,
+                    nroActa = nroActaGenerado,
+                    tipoActa = idTipoActa,
+                    idInspector = idInspectorLogueado,
                     fecha = actaViewModel.fecha,
                     hora = actaViewModel.hora,
                     latitud = actaViewModel.latitud,
                     longitud = actaViewModel.longitud,
-                    estadoEnvio = "PENDIENTE",
+                    estadoEnvio = estadoActa,
                     firmaInspectorBase64 = firmaBase64,
                     esOperativo = actaViewModel.esOperativo,
-                    ejidoUrbano = actaViewModel.ejidoUrbano,//.toString(), // Guardamos el valor (0 o 1)
+                    ejidoUrbano = actaViewModel.ejidoUrbano,
                     nombreCalle = actaViewModel.calle,
                     alturaCalle = actaViewModel.altura,
                     detallePiso = actaViewModel.ubDepto,
                     detalleReferencia = actaViewModel.ubReferencia,
-                    idJuzgado = juzgadoAsignado
+                    idJuzgado = juzgadoAsignado,
+                    idReparticion = idReparticionSeleccionada,
+                    detalleFalta = observacionesFalta,
+                    serie = serieActa,
+                    puntoEmisionId = puntoEmisionIdLogueado,
+                    anio = anioActa,
+                    secuencia = secuenciaActa
                 )
 
-                // Insertamos cabecera y obtenemos el ID generado por Room
                 val idLocal = db.actaDao().insertarCabecera(nuevaActa)
+                actaViewModel.idActaLocal = idLocal
 
-                // 2. Guardamos los Datos del Infractor
+                // 2. Datos del Infractor
                 val infractor = ActaInfractorEntity(
                     actaId = idLocal,
                     nombreCompleto = actaViewModel.ApellidoNombreInfractor,
                     dni = actaViewModel.dniInfractor,
-                    provincia = actaViewModel.provinciaInfractor, // 🚀 Mapeado
-                    localidad = actaViewModel.localidadInfractor, // 🚀 Mapeado
-                    cp = actaViewModel.cpInfractor,               // 🚀 Mapeado
+                    provincia = actaViewModel.provinciaInfractor,
+                    localidad = actaViewModel.localidadInfractor,
+                    cp = actaViewModel.cpInfractor,
                     calle = actaViewModel.calleInfractor,
                     altura = actaViewModel.alturaInfractor,
                     niegaDatos = actaViewModel.niegaDatos,
@@ -363,159 +529,168 @@ class FirmaFragment : Fragment() {
                     nombreResponsable = actaViewModel.nombreResponsable,
                     dniResponsable = actaViewModel.dniResponsable,
                     calleResponsable = actaViewModel.calleResponsable,
-                    alturaResponsable = actaViewModel.alturaResponsable
+                    alturaResponsable = actaViewModel.alturaResponsable,
+                    firmaPath = actaViewModel.firmaInfractorPath
                 )
                 db.actaDao().insertarInfractor(infractor)
 
-                // 3. Guardamos las Faltas Seleccionadas
+                // 3. Faltas Seleccionadas
+
+
                 val listaFaltas = actaViewModel.listaFaltasSeleccionadas.map {
-                    ActaFaltasEntity(actaId = idLocal, codigoFalta = it.codigo, descripcion = it.nombre)
+                    ActaFaltasEntity(
+                        actaId = idLocal,
+                        codigoFalta = it.codigo,
+                        descripcion = it.nombre
+                        //observaciones = observacionesTexto
+                    )
                 }
                 db.actaDao().insertarFaltas(listaFaltas)
 
-                // 4. 🚀 CONDICIONAL: Si es acta de TRANSITO, guardamos vehículo
-                if (actaViewModel.tipoActa.name == "TRANSITO") {
-                    val datosVehiculo = ActaVehiculoEntity(
-                        actaId = idLocal,
-                        dominio = actaViewModel.dominio ?: "",
-                        marca = actaViewModel.marca ?: "",
-                        modelo = actaViewModel.modelo ?: "",
-                        tipoVehiculo = actaViewModel.tipoVehiculo ?: "Moto"
-                        //color = actaViewModel.vehiculoColor
-                    )
-                    db.actaDao().insertarVehiculo(datosVehiculo)
+                // 🚀 BIFURCACIÓN DE CIRCUITOS POR ENUM
+                when (actaViewModel.tipoFormulario) {
 
-                    // 🧪 Si se realizó el test y tenemos resultado, guardamos la alcoholemia técnica
-                    val resultado = actaViewModel.ftResultado
-                    if (resultado > 0.0) {
-                        val alcoholemia = ActaAlcoholemiaEntity(
+                    TipoFormulario.TRANSITO -> {
+                        // -------------------------------------------------------------
+                        // CIRCUITO TRÁNSITO: Vehículo, Alcoholemia, Secuestro
+                        // -------------------------------------------------------------
+                        val datosVehiculo = ActaVehiculoEntity(
                             actaId = idLocal,
-                            resultadoAlcoholemia = resultado,
-                            // Estos datos del equipo los podés tener en variables globales,
-                            // o recuperarlos del ViewModel si el inspector los selecciona/vienen por config
-                            marcaAlcoholimetro = actaViewModel.alcoMarca ?: "Dräger",
-                            modeloAlcoholimetro = actaViewModel.alcoModelo ?: "Alcotest 7510",
-                            nroSerieAlcoholimetro = actaViewModel.alcoSerie ?: "S/N",
-                            codAprobacionAlcoholimetro = actaViewModel.alcoAprobacion ?: "S/C"
-                        )
-                        db.actaDao().insertarAlcoholemia(alcoholemia)
-                    }
+                            dominio = actaViewModel.dominio,
 
-                    // 5. NUEVO: Guardamos el bloque unificado de Medidas Preventivas
-                    val medidasPreventivas = ActaMedidaPreventivaEntity(
-                        actaId = idLocal,
-                        realizoAlcoholemia = actaViewModel.hacerTestAlcoholemia ?: false,
-                        retencionVehiculo = actaViewModel.retencionVehiculo ?: false,
-                        retencionLicencia = actaViewModel.retencionLicencia ?: false,
-                        retencionAnimal = actaViewModel.retencionAnimal ?: false
-                        //observacionesMedida = actaViewModel.medidaObservaciones // Opcional si tenés un campo de texto
-                    )
-                    db.actaDao().insertarMedidasPreventivas(medidasPreventivas)
+                            // Nombres en texto siempre presentes
+                            tipoVehiculo = actaViewModel.tipoVehiculo,
+                            marca = actaViewModel.marca,
+                            modelo = actaViewModel.modelo,
 
-
-                    // 6. Guardamos el Detalle del Secuestro si corresponde
-                    // Podés verificarlo con el tilde de la medida preventiva o si el mapa no está vacío
-                    if (actaViewModel.retencionVehiculo == true || actaViewModel.inventarioSecuestro.isNotEmpty()) {
-
-                        val stringInventario = serializarInventario(actaViewModel.inventarioSecuestro)
-
-                        val detalleSecuestro = ActaSecuestroEntity(
-                            actaId = idLocal,
-                            // Recuperamos los EditText que completó el inspector
-                            numeroMotor = actaViewModel.numeroMotor,
-                            numeroChasis = actaViewModel.numeroChasis,
-                            estadoCentralObservaciones = actaViewModel.estadoCentral,
-                            incluyoInterior = actaViewModel.incluyoInterior,
-                            inventarioSerializado = stringInventario // 👈 Todo el mapa metido acá adentro
+                            // IDs opcionales (serán null si el usuario escribió texto libre)
+                            idTipoVehiculo = actaViewModel.idTipoVehiculoSeleccionado,
+                            idMarca = actaViewModel.idMarcaSeleccionada,
+                            idModelo = actaViewModel.idModeloSeleccionado
                         )
 
-                        db.actaDao().insertarSecuestro(detalleSecuestro)
+                        db.actaDao().insertarVehiculo(datosVehiculo)
+
+                        if (actaViewModel.hacerTestAlcoholemia) {
+                            val alcoholemia = ActaAlcoholemiaEntity(
+                                actaId = idLocal,
+                                resultadoAlcoholemia = actaViewModel.ftResultado,
+                                marcaAlcoholimetro = actaViewModel.alcoMarca ?: "Dräger",
+                                modeloAlcoholimetro = actaViewModel.alcoModelo ?: "Alcotest 7510",
+                                nroSerieAlcoholimetro = actaViewModel.alcoSerie ?: "S/N",
+                                codAprobacionAlcoholimetro = actaViewModel.alcoAprobacion ?: "S/C",
+                                alcoholimetroId = actaViewModel.alcoholimetroId ?: 0
+                            )
+                            db.actaDao().insertarAlcoholemia(alcoholemia)
+                        }
+
+                        val medidasPreventivas = ActaMedidaPreventivaEntity(
+                            actaId = idLocal,
+                            realizoAlcoholemia = actaViewModel.hacerTestAlcoholemia ?: false,
+                            retencionVehiculo = actaViewModel.retencionVehiculo ?: false,
+                            retencionLicencia = actaViewModel.retencionLicencia ?: false,
+                            retencionAnimal = actaViewModel.retencionAnimal ?: false
+                        )
+                        db.actaDao().insertarMedidasPreventivas(medidasPreventivas)
+
+                        if (actaViewModel.retencionVehiculo == true || actaViewModel.inventarioDinamico.isNotEmpty()) {
+                            /*val stringInventario = serializarInventario(actaViewModel.inventarioDinamico)
+                            val detalleSecuestro = ActaSecuestroEntity(
+                                actaId = idLocal,
+                                opcionesLista = stringInventario
+                            )
+                            db.actaDao().insertarSecuestro(detalleSecuestro)*/
+                            val listaChecklist = actaViewModel.inventarioDinamico.map { (codigo, valor) ->
+                                ActaSecuestroEntity(
+                                    actaId = idLocal,
+                                    codigoClave = codigo,
+                                    valor = valor
+                                )
+                            }
+                            db.actaDao().insertarSecuestro(listaChecklist)
+                        }
                     }
+
+                    TipoFormulario.INSPECCION -> {
+                        // -------------------------------------------------------------
+                        // CIRCUITO INSPECCIÓN: Procedimiento, Comercio, Catastro
+                        // -------------------------------------------------------------
+                        val inmueblesSerializados = if (actaViewModel.categoriasSeleccionadas.isNotEmpty()) {
+                            actaViewModel.categoriasSeleccionadas.joinToString(separator = ", ")
+                        } else {
+                            "No especificado"
+                        }
+
+                        // 1. Procedimiento
+                        val procedimiento = ActaProcedimientoEntity(
+                            actaId = idLocal,
+                            tipoInspeccion = actaViewModel.procAccion ?: "Inspección Gral",
+                            tipoInmueble = inmueblesSerializados,
+                            nroReferenciaActa = actaViewModel.procRefActa,
+                            seProcedeA = actaViewModel.procSeProcedeA ?: ""
+                        )
+                        db.actaDao().insertarProcedimiento(procedimiento)
+
+                        // 2. Datos de Comercio (si aplica)
+                        val nombreComer = actaViewModel.comNombreFantasia?.trim() ?: ""
+                        val rubroComer = actaViewModel.comRubro?.trim() ?: ""
+
+                        if (nombreComer.isNotEmpty() || rubroComer.isNotEmpty()) {
+                            val datosComercio = ActaComercioEntity(
+                                actaId = idLocal,
+                                nombreComercio = nombreComer,
+                                nroHabilitacionMunicipal = actaViewModel.comHabNumero,
+                                rubroComercio = rubroComer
+                            )
+                            db.actaDao().insertarComercio(datosComercio)
+                        }
+
+                        // 3. Datos Catastrales (si aplica)
+                        val ctCirc = actaViewModel.catCirc?.trim() ?: ""
+                        val ctSecc = actaViewModel.catSeccion?.trim() ?: ""
+
+                        if (ctCirc.isNotEmpty() || ctSecc.isNotEmpty()) {
+                            val datosCatastro = ActaCatastroEntity(
+                                actaId = idLocal,
+                                ctCirc = actaViewModel.catCirc,
+                                ctSecc = actaViewModel.catSeccion,
+                                ctChaqNro = actaViewModel.catChacraNro,
+                                ctChaqLet = actaViewModel.catChacraLet,
+                                ctQuinNro = actaViewModel.catQuintaNro,
+                                ctQuinLet = actaViewModel.catQuintaLet,
+                                ctFracNro = actaViewModel.catFraccionNro,
+                                ctFracLetra = actaViewModel.catFraccionLet,
+                                ctMzNro = actaViewModel.catManzanaNro,
+                                ctMzLet = actaViewModel.catManzanaLet,
+                                ctParcNro = actaViewModel.catParcelaNro,
+                                ctParcLet = actaViewModel.catParcelaLet,
+                                ctSubParc = actaViewModel.catSubparcela,
+                                ctUf = actaViewModel.catUF
+                            )
+                            db.actaDao().insertarCatastro(datosCatastro)
+                        }
+                    }
+
+                    null -> throw IllegalStateException("El tipo de circuito (TRANSITO/INSPECCION) no está definido en el ViewModel")
                 }
 
-
-                // 🏛️ 🚀 NUEVO: Bloque exclusivo para Inspección General / Notificaciones
-                // Normalizamos el texto: cambia espacios por guiones bajos y asegura mayúsculas
-                val tipoActaNormalizado = actaViewModel.tipoActa.name.replace(" ", "_").uppercase()
-
-                if (tipoActaNormalizado == "INSPECCION" || tipoActaNormalizado == "INSPECCION_GENERAL" || tipoActaNormalizado == "INSPECCION_GRAL") {
-
-                    // Convertimos la lista de categorías ["Comercio", "Obra"] en un String "Comercio, Obra"
-                    val inmueblesSerializados = if (actaViewModel.categoriasSeleccionadas.isNotEmpty()) {
-                        actaViewModel.categoriasSeleccionadas.joinToString(separator = ", ")
-                    } else {
-                        "No especificado"
-                    }
-
-                    // 1. Guardamos el Procedimiento (Obligatorio para este tipo de acta)
-                    val procedimiento = ActaProcedimientoEntity(
-                        actaId = idLocal,
-                        tipoInspeccion = actaViewModel.procAccion ?: "Inspección Gral",
-                        tipoInmueble = inmueblesSerializados, // 👈 Guardamos el String unido por comas
-                        nroReferenciaActa = actaViewModel.procRefActa,
-                        seProcedeA = actaViewModel.procSeProcedeA ?: "" // El campo de texto libre
-                    )
-                    db.actaDao().insertarProcedimiento(procedimiento)
-
-                    // 2. Guardamos los Datos del Comercio (Solo si completó el nombre o rubro)
-                    val nombreComer = actaViewModel.comNombreFantasia?.trim() ?: ""
-                    val rubroComer = actaViewModel.comRubro?.trim() ?: ""
-
-                    if (nombreComer.isNotEmpty() || rubroComer.isNotEmpty()) {
-                        val datosComercio = ActaComercioEntity(
-                            actaId = idLocal,
-                            nombreComercio = nombreComer,
-                            nroHabilitacionMunicipal = actaViewModel.comHabNumero,
-                            rubroComercio = rubroComer
-                        )
-                        db.actaDao().insertarComercio(datosComercio)
-                    }
-
-                    // 3. Guardamos los Datos Catastrales (Solo si cargó al menos la Circunscripción o Sección)
-                    val ctCirc = actaViewModel.catCirc?.trim() ?: ""
-                    val ctSecc = actaViewModel.catSeccion?.trim() ?: ""
-
-                    if (ctCirc.isNotEmpty() || ctSecc.isNotEmpty()) {
-                        val datosCatastro = ActaCatastroEntity(
-                            actaId = idLocal,
-                            ctCirc = actaViewModel.catCirc,
-                            ctSecc = actaViewModel.catSeccion,
-                            ctChaqNro = actaViewModel.catChacraNro,
-                            ctChaqLet = actaViewModel.catChacraLet,
-                            ctQuinNro = actaViewModel.catQuintaNro,
-                            ctQuinLet = actaViewModel.catQuintaLet,
-                            ctFracNro = actaViewModel.catFraccionNro,
-                            ctFracLetra = actaViewModel.catFraccionLet,
-                            ctMzNro = actaViewModel.catManzanaNro,
-                            ctMzLet = actaViewModel.catManzanaLet,
-                            ctParcNro = actaViewModel.catParcelaNro,
-                            ctParcLet = actaViewModel.catParcelaLet,
-                            ctSubParc = actaViewModel.catSubparcela,
-                            ctUf = actaViewModel.catUF
-                        )
-                        db.actaDao().insertarCatastro(datosCatastro)
-                    }
-                }
-
-
-
-                // 7. Guardamos los datos del Testigo si el inspector cargó alguno
+                // 7. Testigos (Compartido para ambos circuitos)
                 val listaTestigos = mutableListOf<ActaTestigoEntity>()
 
                 val dniT1 = actaViewModel.Testigo1Dni?.trim() ?: ""
                 val nombreT1 = actaViewModel.Testigo1Nombre?.trim() ?: ""
 
-                // Si cargó al menos el DNI o el Nombre, procesamos el Testigo 1
                 if (dniT1.isNotEmpty() || nombreT1.isNotEmpty()) {
                     listaTestigos.add(
                         ActaTestigoEntity(
                             actaId = idLocal,
                             dniOriginal = dniT1,
                             nombreOriginal = nombreT1,
-                            provinciaOriginal = actaViewModel.Testigo1Provincia.trim(), // 🚀 AGREGADO
+                            provinciaOriginal = actaViewModel.Testigo1Provincia.trim(),
                             domicilioOriginal = actaViewModel.Testigo1Domicilio?.trim() ?: "",
                             localidadOriginal = actaViewModel.Testigo1Localidad?.trim() ?: "",
-                            cpOriginal = actaViewModel.Testigo1Cp?.trim() ?: ""
+                            cpOriginal = actaViewModel.Testigo1Cp?.trim() ?: "",
+                            firmaPath = actaViewModel.firmaTestigoPath
                         )
                     )
                 }
@@ -523,83 +698,46 @@ class FirmaFragment : Fragment() {
                 val dniT2 = actaViewModel.Testigo2Dni?.trim() ?: ""
                 val nombreT2 = actaViewModel.Testigo2Nombre?.trim() ?: ""
 
-                // 💡 Acordate de hacer lo mismo si tenés el bloque del Testigo 2 abajo:
                 if (dniT2.isNotEmpty() || nombreT2.isNotEmpty()) {
                     listaTestigos.add(
                         ActaTestigoEntity(
                             actaId = idLocal,
                             dniOriginal = dniT2,
                             nombreOriginal = nombreT2,
-                            provinciaOriginal = actaViewModel.Testigo2Provincia.trim(), // 🚀 AGREGADO
+                            provinciaOriginal = actaViewModel.Testigo2Provincia.trim(),
                             domicilioOriginal = actaViewModel.Testigo2Domicilio?.trim() ?: "",
                             localidadOriginal = actaViewModel.Testigo2Localidad?.trim() ?: "",
-                            cpOriginal = actaViewModel.Testigo2Cp?.trim() ?: ""
+                            cpOriginal = actaViewModel.Testigo2Cp?.trim() ?: "",
+                            firmaPath = actaViewModel.firmaTestigoPath
                         )
                     )
                 }
-                // (Opcional) Si en el futuro tenés Testigo 2, clonás el "if" acá abajo para Testigo 2
 
-                // Si la lista tiene elementos, los mandamos a Room de un viaje
                 if (listaTestigos.isNotEmpty()) {
                     db.actaDao().insertarTestigos(listaTestigos)
                 }
 
-                // 8. 📸 CONDICIONAL: Guardamos las fotos tomadas si existen en el ViewModel
+                // 8. Fotos / Media (Compartido para ambos circuitos)
                 val fotosActuales = actaViewModel.listaFotos.value
+
+                // Limpiamos los registros de fotos previos para este idLocal si es una actualización
+                db.actaDao().eliminarMediaPorActaId(idLocal)
+
                 if (!fotosActuales.isNullOrEmpty()) {
-
-                    // Convertimos cada Bitmap de la lista en una entidad de Room guardando el archivo físico
                     val listaMedia = fotosActuales.mapIndexed { indice, bitmap ->
-
-                        // Creamos un nombre único usando el ID local y el índice
-                        val nombreFoto = "acta_${idLocal}_foto_${indice + 1}"
+                        val nombreFoto = "acta_${idLocal}_foto_${indice + 1}.jpg"
                         val rutaFisica = guardarBitmapEnAlmacenamiento(bitmap, nombreFoto)
 
                         ActaMediaEntity(
                             actaId = idLocal,
                             tipoMedia = "FOTO_${indice + 1}",
-                            rutaArchivo = rutaFisica // 👈 Ahora sí viaja el String con la ruta del archivo
+                            rutaArchivo = rutaFisica
                         )
                     }
                     db.actaDao().insertarMedia(listaMedia)
                 }
 
-                // 🧪 --- BLOQUE DE PRUEBA: VER EL JSON COMPLETO EN EL LOGCAT ---
-                /*try {
-                    // 1. Buscamos el acta completa que acabamos de meter en Room
-                    val actaRecuperadaDb = db.actaDao().obtenerActaCompleta(idLocal)
-
-                    if (actaRecuperadaDb != null) {
-                        // 2. La pasamos por nuestro mapeador para convertirla a DTO
-                        val dtoEnviar = com.chivilcoyactas.net.ActaMapeador.transformarAEnviarDto(actaRecuperadaDb)
-
-                        // 3. Inicializamos GSON con formato lindo (Pretty Printing)
-                        val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                        val jsonString = gson.toJson(dtoEnviar)
-
-                        // 4. Lo mandamos al Logcat con una etiqueta bien llamativa
-                        android.util.Log.d("JSON_ACTA_CHIVILCOY", "\n================ OBJETO JSON A ENVIAR ================\n$jsonString\n=======================================================")
-
-
-                        // 2. Disparás a la red en una corrutina
-                        val respuesta = RetrofitClient.apiService.enviarActa(dtoEnviar)
-
-                        if (respuesta.isSuccessful && respuesta.body()?.success == true) {
-                            // 3. ¡Éxito total! Actualizás tu Room local: estadoEnvio = "ENVIADO" e idServer = respuesta.body()?.idServer
-                            db.actaDao().actualizarEstadoSincro(idLocal, "ENVIADO", respuesta.body()?.idServer)
-                        } else {
-                            // Hubo un error de red o de validación en el servidor: estadoEnvio = "ERROR"
-                            db.actaDao().actualizarEstadoSincro(idLocal, "ERROR", null)
-                        }
-                    }
-                } catch (jsonException: Exception) {
-                    android.util.Log.e("JSON_ACTA_CHIVILCOY", "Error generando el JSON de prueba: ${jsonException.message}")
-                }*/
-                // ---------------------------------------------------------------
-
-                // =================================================================
-                // 🧪 OPTATIVO: PRUEBA DE LOGCAT (Para ver el JSON lindo en consola)
-                // =================================================================
+                // Logcat de verificación en desarrollo
                 try {
                     val actaRecuperadaDb = db.actaDao().obtenerActaCompleta(idLocal)
                     if (actaRecuperadaDb != null) {
@@ -611,44 +749,53 @@ class FirmaFragment : Fragment() {
                 } catch (jsonException: Exception) {
                     android.util.Log.e("JSON_ACTA_CHIVILCOY", "Error en Logcat de prueba: ${jsonException.message}")
                 }
-                // =================================================================
-
-                // =================================================================
-                // 🚀 DISPARO AUTOMÁTICO CON WORKMANAGER (Sustituye al envío manual)
-                // =================================================================
-                // 1. Reglas: Solo arrancar si hay internet (Wi-Fi o Datos)
-                val restricciones = Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-
-                // 2. Creamos la petición de trabajo único
-                val solicitudSincro = OneTimeWorkRequestBuilder<SincronizacionWorker>()
-                    .setConstraints(restricciones)
-                    .build()
-
-                // 3. Encolamos en el sistema operativo Android
-                WorkManager.getInstance(requireContext()).enqueue(solicitudSincro)
-                // =================================================================
 
 
-                //----------------------------------------------------------------
-                // 1. Definimos las REGLAS: Solo arrancar si el teléfono tiene internet (cualquiera: Wi-Fi o Datos móviles)
-                //val restricciones = Constraints.Builder()
-                //    .setRequiredNetworkType(NetworkType.CONNECTED)
-               //     .build()
+                // Solo encolamos la sincronización si el acta NO es un borrador pendiente
+                if (estadoActa == "PENDIENTE") {
+                   /* val restricciones = Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
 
-                // 2. Creamos la petición de trabajo único para nuestro Worker
-                //val solicitudSincro = OneTimeWorkRequestBuilder<SincronizacionWorker>()
-                //    .setConstraints(restricciones)
-                //    .build()
+                    val solicitudSincro = OneTimeWorkRequestBuilder<SincronizacionWorker>()
+                        .setConstraints(restricciones)
+                        .build()
 
-                // 3. Encolamos la tarea en el sistema operativo
-               // WorkManager.getInstance(requireContext()).enqueue(solicitudSincro)
-                //----------------------------------------------------------------
+                    WorkManager.getInstance(requireContext()).enqueue(solicitudSincro)*/
+                    val restricciones = Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
+
+                    // 1. Pasamos el idLocal como dato de entrada al Worker
+                    val inputData = workDataOf("ACTA_ID_LOCAL" to idLocal)
+
+                    // 2. Armamos la solicitud con reintento exponencial
+                    val solicitudSincro = OneTimeWorkRequestBuilder<SincronizacionWorker>()
+                        .setConstraints(restricciones)
+                        .setInputData(inputData)
+                        .setBackoffCriteria(
+                            BackoffPolicy.EXPONENTIAL,
+                            WorkRequest.MIN_BACKOFF_MILLIS,
+                            java.util.concurrent.TimeUnit.MILLISECONDS
+                        )
+                        .build()
+
+                    // 3. Encolamos como trabajo único usando el idLocal
+                    WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+                        "sincro_acta_$idLocal",
+                        ExistingWorkPolicy.KEEP,
+                        solicitudSincro
+                    )
+                }
 
                 withContext(Dispatchers.Main) {
                     loadingDialog.dismiss()
-                    Toast.makeText(requireContext(), "Acta guardada localmente de forma completa", Toast.LENGTH_SHORT).show()
+                    val mensaje = if (estadoActa == "BORRADOR") {
+                        "Borrador guardado localmente"
+                    } else {
+                        "Acta guardada y en cola de envío"
+                    }
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
                     findNavController().navigate(R.id.action_firma_to_exito)
                 }
 
@@ -662,15 +809,44 @@ class FirmaFragment : Fragment() {
     }
 
     private fun guardarBitmapEnAlmacenamiento(bitmap: Bitmap, nombreArchivo: String): String {
-        // Guardamos en el directorio de archivos privados de la app (no ensucia la galería del inspector)
-        val directorio = requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
-        val archivo = java.io.File(directorio, "$nombreArchivo.jpg")
-
-        java.io.FileOutputStream(archivo).use { out ->
-            // Comprimimos la foto al 80% para que no pese una locura y suba rápido a Laravel
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        val carpetaFotos = File(requireContext().filesDir, "fotos_actas")
+        if (!carpetaFotos.exists()) {
+            carpetaFotos.mkdirs()
         }
-        return archivo.absolutePath
+
+        // Evita duplicar ".jpg" si nombreArchivo ya lo trae
+        val nombreLimpio = if (nombreArchivo.endsWith(".jpg", ignoreCase = true)) {
+            nombreArchivo
+        } else {
+            "$nombreArchivo.jpg"
+        }
+
+        val archivoDestino = File(carpetaFotos, nombreLimpio)
+
+        try {
+            FileOutputStream(archivoDestino).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+                out.flush()
+            }
+        } catch (e: Exception) {
+            Log.e("GUARDAR_FOTO", "Error al guardar foto en disco: ${e.message}")
+        }
+
+        return archivoDestino.absolutePath
+    }
+
+    private fun guardarFirmaEnDisco(bitmap: Bitmap, nombreTipo: String): String {
+        val context = requireContext()
+        // Generar un nombre único basado en el timestamp o el número de acta
+        val nombreArchivo = "firma_${nombreTipo}_${System.currentTimeMillis()}.png"
+        val archivo = File(context.filesDir, nombreArchivo)
+
+        FileOutputStream(archivo).use { out ->
+            // Comprimir en PNG para mantener la transparencia/calidad sin pérdida
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        return archivo.absolutePath // Retorna la ruta absoluta del archivo local
     }
 
     private fun serializarInventario(inventario: Map<String, String>): String {
