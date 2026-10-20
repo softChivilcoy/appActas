@@ -29,6 +29,7 @@ data class ActaInfractorEntity(
 
     // Solo Tránsito
     val nroLicencia: String? = null,
+    val tieneLicencia: Int = 0, // 0 = No, 1 = Sí
 
     // Solo Inspección
     val vinculoLugar: String? = null,
@@ -36,5 +37,6 @@ data class ActaInfractorEntity(
     val dniResponsable: String? = null,
     val calleResponsable: String? = null,
     val alturaResponsable: String? = null,
-    val firmaPath: String? = null
+    val firmaPath: String? = null,
+    val motivoNiega: String? = null
 )

@@ -1,5 +1,6 @@
 package com.chivilcoyactas
 
+import android.graphics.Rect
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.os.Bundle
@@ -13,11 +14,23 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.lifecycleScope
 import com.chivilcoyactas.databinding.FragmentInfractorBinding
+import com.chivilcoyactas.databinding.ItemDatosVinculoBinding
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import android.util.Log
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlinx.coroutines.launch
+import androidx.core.view.isVisible
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
+import androidx.core.widget.NestedScrollView
+import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.textfield.TextInputLayout
 
 class InfractorFragment : Fragment() {
 
@@ -30,9 +43,13 @@ class InfractorFragment : Fragment() {
         if (result.contents == null) {
             Toast.makeText(requireContext(), "Escaneo cancelado", Toast.LENGTH_LONG).show()
         } else {
-            parsearDatosDNI(result.contents)
+            activeScanningBinding?.let { binding ->
+                parsearDatosDNI(result.contents, binding)
+            }
         }
     }
+
+    private var activeScanningBinding: ItemDatosVinculoBinding? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -45,159 +62,70 @@ class InfractorFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Forzar scroll al inicio al entrar/volver
+        binding.scrollInfractor.post { binding.scrollInfractor.scrollTo(0, 0) }
+
         (activity as? MainActivity)?.actualizarProgreso(3)
 
-        val esInspeccion = actaViewModel.tipoFormulario == TipoFormulario.INSPECCION
-
-        if (esInspeccion) {
-            binding.layoutVinculo.visibility = View.VISIBLE
-            binding.layoutSoloTransito.visibility = View.GONE
-            binding.tvTituloDatos1.text = "DATOS DEL PROPIETARIO"
-            configurarSpinnerVinculo()
-        } else {
-            binding.layoutVinculo.visibility = View.GONE
-            binding.layoutSoloTransito.visibility = View.VISIBLE
-            binding.tvTituloDatos1.text = "DATOS DEL INFRACTOR"
+        // 1. Ajuste automático del ScrollView según la altura REAL del teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollInfractor) { v, insets ->
+            val keyboardHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val density = resources.displayMetrics.density
+            val bottomPadding = if (keyboardHeight > 0) keyboardHeight + (32 * density).toInt() else (20 * density).toInt()
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bottomPadding)
+            insets
         }
 
-        val autoFilterUpper = InputFilter.AllCaps()
+        // Ajustar el ancho de los 3 chips para que sean iguales dividiendo el espacio disponible
+        binding.chipGroupEstado.post {
+            val spacing = (8 * resources.displayMetrics.density).toInt()
+            val totalSpacing = spacing * 2 // 2 espacios entre 3 chips
+            val anchoDisponible = binding.chipGroupEstado.width - binding.chipGroupEstado.paddingLeft - binding.chipGroupEstado.paddingRight - totalSpacing
+            val anchoPorChip = anchoDisponible / 3
 
-        binding.etCalle.filters = arrayOf(autoFilterUpper)
+            binding.chipAportaDatos.width = anchoPorChip
+            binding.chipSeNiega.width = anchoPorChip
+            binding.chipNoEsta.width = anchoPorChip
+        }
 
-        val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
-        val adapterCalles = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            callesChivilcoy
-        )
+        actaViewModel.todosLosRolesInvolucrado.observe(viewLifecycleOwner) { roles ->
+            renderizarVinculosChips(roles)
+        }
 
-        val etDomicilio = binding.etCalle as MaterialAutoCompleteTextView
+        binding.layoutVinculo.isVisible = true
+        // renderizarVinculosChips() // Se llama ahora vía observer de LiveData
 
-        // 1. Asignar el adaptador de sugerencias
-        etDomicilio.setAdapter(adapterCalles)
+        // 2. Respuesta del Infractor
+        binding.chipGroupEstado.setOnCheckedStateChangeListener { _, checkedIds ->
+            val checkedId = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
 
-        // 2. FORZAR que sea editable y muestre el teclado normalmente
-        etDomicilio.keyListener = android.text.method.TextKeyListener.getInstance()
+            val esInspeccion = actaViewModel.tipoFormulario == TipoFormulario.INSPECCION
 
-        // 3. Sugerir a partir de la primera letra tipeada
-        etDomicilio.threshold = 1
+            //if (checkedId == binding.apSiDatos.id) {
+            if (checkedId == R.id.chipAportaDatos) {
+                binding.layoutVinculo.isVisible = true
+                binding.containerFormulariosDinamicos.isVisible = true
+                binding.tilObservaciones.isVisible = false
+            } else if (checkedId == R.id.chipSeNiega || checkedId == R.id.chipNoEsta) {
+                binding.layoutVinculo.isVisible = false
+                binding.containerFormulariosDinamicos.isVisible = false
+                binding.tilObservaciones.isVisible = true
 
-        // 4. Si toca la flechita del desplegable, mostrar todas las sugerencias
-        etDomicilio.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && etDomicilio.text.isNullOrEmpty()) {
-                etDomicilio.showDropDown()
+                // Hacer foco en el EditText interno de tilObservaciones
+                binding.etObservaciones.requestFocus()
+                (activity as? MainActivity)?.mostrarTeclado(binding.etObservaciones)
             }
         }
 
-        binding.btnEscanearDNI.setOnClickListener {
-            val options = ScanOptions()
-            options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-            options.setPrompt("ALEJE EL DNI (5-10 cm) HASTA QUE HAGA FOCO")
-            options.setBeepEnabled(true)
-            options.setOrientationLocked(false)
-            options.setBarcodeImageEnabled(false)
-            options.setTorchEnabled(false)
-            barcodeLauncher.launch(options)
-        }
-
-        // ==========================================
-        // 🚀 COMBOS DINÁMICOS DESDE ROOM (PROV / LOC)
-        // ==========================================
-
-        // 1. Carga Dinámica de Provincias desde Room
-        // 1. CARGA DE PROVINCIAS
-        actaViewModel.todasLasProvincias.observe(viewLifecycleOwner) { listaProvincias ->
-            val nombresProvincias = listaProvincias.map { it.nombre.uppercase() }
-            val adapterProvincia = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresProvincias)
-            binding.autoCompleteProvincia.setAdapter(adapterProvincia)
-
-            if (actaViewModel.provinciaInfractor.isNotEmpty()) {
-                binding.autoCompleteProvincia.setText(actaViewModel.provinciaInfractor, false)
-            }
-        }
-
-        binding.autoCompleteProvincia.setOnItemClickListener { parent, _, position, _ ->
-            val provSeleccionada = parent.getItemAtPosition(position).toString()
-            actaViewModel.provinciaInfractor = provSeleccionada
-
-            // Buscamos el ID de la provincia elegida
-            val objetoProvincia = actaViewModel.todasLasProvincias.value?.find { it.nombre.uppercase() == provSeleccionada }
-            val provinciaId = objetoProvincia?.id ?: 0
-
-            // Limpiamos el combo de localidades porque cambió la provincia
-            binding.autoCompleteLocalidad.text.clear()
-            actaViewModel.localidadInfractor = ""
-
-            // 🔄 Disparamos la búsqueda de localidades de esta provincia en Room (Igual que con los modelos)
-            lifecycleScope.launch {
-                val localidadesFiltradas = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerLocalidadesPorProvincia(provinciaId)
-                val nombresLocalidades = localidadesFiltradas.map { it.nombre.uppercase() }
-                val adapterLocalidad = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresLocalidades)
-                binding.autoCompleteLocalidad.setAdapter(adapterLocalidad)
-            }
-        }
-
-        // 2. SELECCIÓN DE LOCALIDAD
-        binding.autoCompleteLocalidad.setOnItemClickListener { parent, _, position, _ ->
-            val locSeleccionada = parent.getItemAtPosition(position).toString()
-            actaViewModel.localidadInfractor = locSeleccionada
-
-            if (locSeleccionada.equals("CHIVILCOY", ignoreCase = true)) {
-                binding.etCP.setText("6620")
-            }
-        }
-
-        // Configuración de auto scrolls
-        configurarAutoScroll(binding.etNombre)
-        configurarAutoScroll(binding.etDni)
-        configurarAutoScroll(binding.etLicencia)
-        configurarAutoScroll(binding.autoCompleteProvincia)
-        configurarAutoScroll(binding.autoCompleteLocalidad)
-        configurarAutoScroll(binding.etCalle)
-
-        binding.rgDato.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.apSiDatos -> {
-                    binding.layoutDatosPersonales.visibility = View.VISIBLE
-                    binding.btnEscanearDNI.visibility = View.VISIBLE
-                    binding.tilObservaciones.visibility = View.GONE
-                }
-                R.id.apNoDatos, R.id.apNoIdentifica -> {
-                    binding.layoutDatosPersonales.visibility = View.GONE
-                    binding.btnEscanearDNI.visibility = View.GONE
-                    binding.tilObservaciones.visibility = View.VISIBLE
-                }
-            }
-        }
-
-        binding.rgLicencia.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.rbSiLicencia -> {
-                    binding.tilLicencia.visibility = View.VISIBLE
-                }
-                R.id.rbNoLicencia -> {
-                    binding.tilLicencia.visibility = View.GONE
-                    binding.etLicencia.text?.clear()
-                    actaViewModel.nroLicencia = ""
-                }
-            }
-        }
-
-        binding.etObservaciones.setOnFocusChangeListener { _, hasFocus ->
+        binding.etObservaciones.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
-                binding.scrollInfractor.postDelayed({
-                    binding.scrollInfractor.smoothScrollTo(0, binding.tilObservaciones.top)
-                }, 200)
+                ejecutarAutoScroll(view)
+                view.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                view.setBackgroundResource(0)
             }
         }
-
-        binding.etCalleNro.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
-                actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
-                binding.btnSiguiente.performClick()
-                true
-            } else false
-        }
+        
 
         binding.btnVolver.setOnClickListener {
             if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
@@ -208,25 +136,40 @@ class InfractorFragment : Fragment() {
         }
 
         binding.btnSiguiente.setOnClickListener {
-            val opcionSeleccionada = binding.rgDato.checkedRadioButtonId
+            //val opcionSeleccionada = binding.chipGroupEstado.checkedChipId
+            val opcionSeleccionada = binding.chipGroupEstado.checkedChipId
 
-            if (opcionSeleccionada == -1) {
+            //if (opcionSeleccionada == -1) {
+            if (opcionSeleccionada == View.NO_ID) { // Equivalente a == -1
                 Toast.makeText(context, "Por favor, seleccione una condición del infractor", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            if (opcionSeleccionada == binding.apSiDatos.id) {
-                if (binding.etNombre.text.isNullOrBlank()) {
-                    binding.etNombre.error = "Campo Obligatorio"
+            //if (opcionSeleccionada == binding.apSiDatos.id) {
+            if (opcionSeleccionada == R.id.chipAportaDatos) {
+                if (binding.containerFormulariosDinamicos.childCount == 0) {
+                    Toast.makeText(context, "Debe seleccionar al menos un vínculo", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                if (binding.etDni.text.toString().isEmpty()) {
-                    binding.etDni.error = "Campo Obligatorio"
-                    return@setOnClickListener
+                // Validar cada formulario dinámico
+                for (i in 0 until binding.containerFormulariosDinamicos.childCount) {
+                    val view = binding.containerFormulariosDinamicos.getChildAt(i)
+                    val item = ItemDatosVinculoBinding.bind(view)
+                    if (item.etNombre.text.isNullOrBlank()) {
+                        item.etNombre.error = "Campo Obligatorio"
+                        item.etNombre.requestFocus()
+                        return@setOnClickListener
+                    }
+                    if (item.etDni.text.isNullOrBlank()) {
+                        item.etDni.error = "Campo Obligatorio"
+                        item.etDni.requestFocus()
+                        return@setOnClickListener
+                    }
                 }
             }
 
-            if (opcionSeleccionada == binding.apNoDatos.id || opcionSeleccionada == binding.apNoIdentifica.id) {
+            //if (opcionSeleccionada == binding.apNoDatos.id || opcionSeleccionada == binding.apNoIdentifica.id) {
+            if (opcionSeleccionada == R.id.chipSeNiega || opcionSeleccionada == R.id.chipNoEsta) {
                 if (binding.etObservaciones.text.isNullOrBlank()) {
                     binding.etObservaciones.error = "Debe justificar el motivo de la falta de datos"
                     return@setOnClickListener
@@ -252,153 +195,484 @@ class InfractorFragment : Fragment() {
     }
 
     private fun cargarDatosDeCaja() {
-        binding.etNombre.setText(actaViewModel.ApellidoNombreInfractor)
-        binding.etDni.setText(actaViewModel.dniInfractor)
-        binding.etLicencia.setText(actaViewModel.nroLicencia)
-
-        // CORREGIDO: Apunta a los AutocompleteTextView
-        binding.autoCompleteProvincia.setText(if (actaViewModel.provinciaInfractor.isEmpty()) "BUENOS AIRES" else actaViewModel.provinciaInfractor, false)
-        binding.autoCompleteLocalidad.setText(if (actaViewModel.localidadInfractor.isEmpty()) "CHIVILCOY" else actaViewModel.localidadInfractor, false)
-        binding.etCP.setText(if (actaViewModel.cpInfractor.isEmpty()) "6620" else actaViewModel.cpInfractor)
-
-        binding.etCalle.setText(actaViewModel.calleInfractor)
-        binding.etCalleNro.setText(actaViewModel.alturaInfractor)
-
         when (actaViewModel.niegaDatos) {
             0 -> {
-                binding.rgDato.check(R.id.apSiDatos)
-                binding.layoutDatosPersonales.visibility = View.VISIBLE
-                binding.btnEscanearDNI.visibility = View.VISIBLE
-                binding.tilObservaciones.visibility = View.GONE
+                binding.chipGroupEstado.check(R.id.chipAportaDatos)
+                binding.layoutVinculo.isVisible = true
+                binding.containerFormulariosDinamicos.isVisible = true
+                binding.tilObservaciones.isVisible = false
             }
             1 -> {
-                binding.rgDato.check(R.id.apNoDatos)
-                binding.layoutDatosPersonales.visibility = View.GONE
-                binding.btnEscanearDNI.visibility = View.GONE
-                binding.tilObservaciones.visibility = View.VISIBLE
+                binding.chipGroupEstado.check(R.id.chipSeNiega)
+                binding.layoutVinculo.isVisible = false
+                binding.containerFormulariosDinamicos.isVisible = false
+                binding.tilObservaciones.isVisible = true
             }
             2 -> {
-                binding.rgDato.check(R.id.apNoIdentifica)
-                binding.layoutDatosPersonales.visibility = View.GONE
-                binding.btnEscanearDNI.visibility = View.GONE
-                binding.tilObservaciones.visibility = View.VISIBLE
+                binding.chipGroupEstado.check(R.id.chipNoEsta)
+                binding.layoutVinculo.isVisible = false
+                binding.containerFormulariosDinamicos.isVisible = false
+                binding.tilObservaciones.isVisible = true
             }
             else -> {
-                binding.rgDato.clearCheck()
-                binding.layoutDatosPersonales.visibility = View.GONE
-                binding.btnEscanearDNI.visibility = View.GONE
-                binding.tilObservaciones.visibility = View.GONE
+                binding.chipGroupEstado.clearCheck()
+                binding.layoutVinculo.isVisible = false
+                binding.containerFormulariosDinamicos.isVisible = false
+                binding.tilObservaciones.isVisible = false
             }
-        }
-
-        if (actaViewModel.tieneLicencia) {
-            binding.rgLicencia.check(R.id.rbSiLicencia)
-            binding.tilLicencia.visibility = View.VISIBLE
-        } else {
-            binding.rgLicencia.check(R.id.rbNoLicencia)
-            binding.tilLicencia.visibility = View.GONE
         }
 
         binding.etObservaciones.setText(actaViewModel.motivoDatos)
 
-        if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
-            binding.spinnerVinculo.setText(actaViewModel.vinculoLugar, false)
+        // Migración de datos para modo TRANSITO (si existen en campos individuales pero no en el mapa dinámico)
+    }
 
-            if (actaViewModel.vinculoLugar != "Propietario" && !actaViewModel.vinculoLugar.isNullOrBlank()) {
-                binding.layoutDatosVinculoExtra.visibility = View.VISIBLE
-                binding.etNombreVinculo.setText(actaViewModel.nombreResponsable)
-                binding.etDniVinculo.setText(actaViewModel.dniResponsable)
-                binding.etCalleVinculo.setText(actaViewModel.calleResponsable)
-                binding.etCalleNroVinculo.setText(actaViewModel.alturaResponsable)
+    private fun renderizarVinculosChips(roles: List<TipoRolInvolucradoEntity>) {
+        val seleccionadosPreviamente = actaViewModel.vinculoLugar.split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+
+        binding.containerVinculos.removeAllViews()
+        // No borramos los formularios aquí si ya existen para evitar parpadeos, 
+        // pero la lógica de abajo se encarga de sincronizar.
+
+        val density = resources.displayMetrics.density
+        val marginHorizontal = (4 * density).toInt()
+        val marginVertical = (4 * density).toInt()
+
+        roles.forEach { rolEntity ->
+            val opcion = rolEntity.codigo
+            
+            val button = com.google.android.material.button.MaterialButton(
+                requireContext(),
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = opcion
+                isCheckable = true
+                isAllCaps = false
+                textSize = 12f
+                cornerRadius = (12 * density).toInt()
+                
+                // Apariencia compacta
+                minHeight = 0
+                minWidth = 0
+                val verticalInset = (4 * density).toInt()
+                insetTop = verticalInset
+                insetBottom = verticalInset
+                setPaddingRelative((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+
+                isSingleLine = false
+                maxLines = 2
+                gravity = android.view.Gravity.CENTER
+                
+                isChecked = seleccionadosPreviamente.contains(opcion.lowercase())
+            }
+
+            // Si ya venía marcado (al volver de otra pantalla), asegurar que el formulario exista
+            if (button.isChecked) {
+                if (binding.containerFormulariosDinamicos.findViewWithTag<View>(opcion) == null) {
+                    agregarFormularioPersona(rolEntity, scrollAndFocus = false)
+                }
+            }
+
+            button.addOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    if (binding.containerFormulariosDinamicos.findViewWithTag<View>(opcion) == null) {
+                        agregarFormularioPersona(rolEntity, scrollAndFocus = true)
+                    }
+                } else {
+                    eliminarFormularioPersona(rolEntity)
+                }
+            }
+
+            // Configuración de LayoutParams para el GridLayout (2 columnas)
+            val params = androidx.gridlayout.widget.GridLayout.LayoutParams(
+                androidx.gridlayout.widget.GridLayout.spec(androidx.gridlayout.widget.GridLayout.UNDEFINED, androidx.gridlayout.widget.GridLayout.FILL),
+                androidx.gridlayout.widget.GridLayout.spec(androidx.gridlayout.widget.GridLayout.UNDEFINED, androidx.gridlayout.widget.GridLayout.FILL, 1f)
+            )
+            params.width = 0
+            params.height = androidx.gridlayout.widget.GridLayout.LayoutParams.WRAP_CONTENT
+            params.setMargins(marginHorizontal, marginVertical, marginHorizontal, marginVertical)
+            button.layoutParams = params
+
+            binding.containerVinculos.addView(button)
+        }
+    }
+
+    private fun agregarFormularioPersona(rol: TipoRolInvolucradoEntity, scrollAndFocus: Boolean = false) {
+        val rolNombre = rol.codigo
+        val itemBinding = ItemDatosVinculoBinding.inflate(layoutInflater, binding.containerFormulariosDinamicos, false)
+        val view = itemBinding.root
+        view.tag = rolNombre
+
+        itemBinding.tvTituloFormulario.text = "DATOS DEL ${rolNombre.uppercase()}"
+
+        val datos = actaViewModel.datosPersonasVinculadas.entries.find { 
+            it.key.lowercase() == rolNombre.lowercase() 
+        }?.value ?: PersonaVinculada()
+        
+        setupLogicaFormularioDinamico(itemBinding, datos, rol)
+
+        binding.containerFormulariosDinamicos.addView(view)
+
+        if (scrollAndFocus) {
+            view.post {
+                ejecutarAutoScroll(itemBinding.tvTituloFormulario)
+
+                itemBinding.etNombre.requestFocus()
+                (activity as? MainActivity)?.mostrarTeclado(itemBinding.etNombre)
             }
         }
     }
 
-    private fun configurarSpinnerVinculo() {
-        val opciones = arrayOf("Propietario", "Encargado", "Razon Social", "Locatario", "Conductor", "Otro")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, opciones)
-        (binding.spinnerVinculo as? AutoCompleteTextView)?.apply {
-            setAdapter(adapter)
-            setOnItemClickListener { _, _, position, _ ->
-                val seleccion = opciones[position]
-                actaViewModel.vinculoLugar = seleccion
+    private fun eliminarFormularioPersona(rol: TipoRolInvolucradoEntity) {
+        val view = binding.containerFormulariosDinamicos.findViewWithTag<View>(rol.codigo)
+        if (view != null) {
+            binding.containerFormulariosDinamicos.removeView(view)
+        }
+        // Eliminar del mapa usando búsqueda insensible a mayúsculas
+        val keyToRemove = actaViewModel.datosPersonasVinculadas.keys.find { it.lowercase() == rol.codigo.lowercase() }
+        if (keyToRemove != null) {
+            actaViewModel.datosPersonasVinculadas.remove(keyToRemove)
+        }
+    }
 
-                if (seleccion == "Propietario") {
-                    binding.layoutDatosVinculoExtra.visibility = View.GONE
+    private fun setupLogicaFormularioDinamico(item: ItemDatosVinculoBinding, datos: PersonaVinculada, rol: TipoRolInvolucradoEntity) {
+        item.etNombre.setText(datos.nombre)
+        item.etDni.setText(datos.dni)
+        item.etCalle.setText(datos.calle)
+        item.etCalleNro.setText(datos.altura)
+        
+        val provInicial = datos.provincia.ifEmpty { "BUENOS AIRES" }
+        val locInicial = datos.localidad.ifEmpty { "CHIVILCOY" }
+        
+        item.autoCompleteProvincia.setText(provInicial, false)
+        item.autoCompleteLocalidad.setText(locInicial, false)
+        item.etCP.setText(datos.cp.ifEmpty { "6620" })
+
+        val autoFilterUpper = InputFilter.AllCaps()
+
+        // 1. Configuración de autocompletado de CALLES (Editable + Sugerencias)
+        item.etCalle.filters = arrayOf(autoFilterUpper)
+        item.etCalle.dropDownVerticalOffset = -20
+        val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
+        val adapterCalles = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, callesChivilcoy)
+        
+        item.etCalle.setAdapter(adapterCalles)
+        // Forzamos que sea editable y muestre el teclado normalmente como en Testigos.kt
+        item.etCalle.keyListener = android.text.method.TextKeyListener.getInstance()
+        item.etCalle.threshold = 1
+        
+        item.etCalle.setOnClickListener { 
+            (item.etCalle as? AutoCompleteTextView)?.showDropDown()
+        }
+        item.etCalle.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                (item.etCalle as? AutoCompleteTextView)?.showDropDown()
+                ejecutarAutoScroll(view)
+                view.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                view.setBackgroundResource(0)
+            }
+        }
+
+        item.etCalle.setOnItemClickListener { _, _, _, _ ->
+            item.etCalleNro.requestFocus()
+        }
+
+        // Lógica de Licencia
+        val requiereLicencia = rol.requiereLicencia
+        
+        item.cardLicencia.isVisible = requiereLicencia
+        if (!requiereLicencia) {
+            item.tilLicencia.isVisible = false
+            item.chipGroupLicencia.check(R.id.chipLicenciaNo)
+            item.etLicencia.text?.clear()
+        } else {
+            // Si requiere licencia, mostramos la sección y cargamos los datos
+            if (datos.tieneLicencia) {
+                item.chipGroupLicencia.check(R.id.chipLicenciaSi)
+                item.tilLicencia.isVisible = true
+                item.etLicencia.setText(datos.nroLicencia)
+            } else {
+                item.chipGroupLicencia.check(R.id.chipLicenciaNo)
+                item.tilLicencia.isVisible = false
+            }
+        }
+
+        item.chipGroupLicencia.setOnCheckedStateChangeListener { _, checkedIds ->
+            val isSi = checkedIds.contains(R.id.chipLicenciaSi)
+            item.tilLicencia.isVisible = isSi
+            if (!isSi) {
+                item.etLicencia.text?.clear()
+            }
+        }
+
+        item.cardUbicacion.setOnClickListener {
+            item.containerUbicacionExtra.isVisible = !item.containerUbicacionExtra.isVisible
+        }
+
+        item.btnEscanearDNI.setOnClickListener {
+            activeScanningBinding = item
+            val options = ScanOptions()
+            options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+            options.setPrompt("ALEJE EL DNI (5-10 cm) HASTA QUE HAGA FOCO")
+            options.setBeepEnabled(true)
+            options.setOrientationLocked(false)
+            options.setBarcodeImageEnabled(false)
+            options.setTorchEnabled(false)
+            barcodeLauncher.launch(options)
+        }
+
+        val actualizarResumen = {
+            val p = item.autoCompleteProvincia.text.toString()
+            val l = item.autoCompleteLocalidad.text.toString()
+            val c = item.etCP.text.toString()
+            item.tvUbicacionResumen.text = "$l, $p (CP $c)"
+        }
+
+        actualizarResumen()
+
+        // Helper para cargar y configurar localidades
+        fun cargarLocalidades(provNombre: String) {
+            lifecycleScope.launch {
+                val objetoProvincia = actaViewModel.todasLasProvincias.value?.find { it.nombre.equals(provNombre, ignoreCase = true) }
+                val provinciaId = objetoProvincia?.id ?: 0
+                val localidades = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerLocalidadesPorProvincia(provinciaId)
+                val nombresLocalidades = localidades.map { it.nombre.uppercase() }
+                
+                val adapterLocalidad = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresLocalidades)
+                item.autoCompleteLocalidad.setAdapter(adapterLocalidad)
+                item.autoCompleteLocalidad.threshold = 1
+            }
+        }
+
+        // 2. Configuración de PROVINCIAS (Combo reactivo)
+        actaViewModel.todasLasProvincias.observe(viewLifecycleOwner) { listaProvincias ->
+            val nombresProvincias = listaProvincias.map { it.nombre.uppercase() }
+            val adapterProvincia = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresProvincias)
+            item.autoCompleteProvincia.setAdapter(adapterProvincia)
+
+            // Si es la carga inicial y el campo está vacío, nos aseguramos de cargar localidades de BA
+            if (item.autoCompleteProvincia.text.toString().uppercase() == "BUENOS AIRES") {
+                cargarLocalidades("BUENOS AIRES")
+            }
+        }
+
+        // Configuración de botón Volver Arriba
+        item.btnVolverArriba.isVisible = true
+        item.btnVolverArriba.setOnClickListener {
+            val rect = Rect()
+            binding.layoutVinculo.getDrawingRect(rect)
+            binding.scrollInfractor.offsetDescendantRectToMyCoords(binding.layoutVinculo, rect)
+            binding.scrollInfractor.smoothScrollTo(0, rect.top)
+
+            // Opcional: darle foco a los chips de vínculos
+            binding.containerVinculos.requestFocus()
+        }
+
+        // Carga inicial de localidades para la provincia actual
+        cargarLocalidades(provInicial)
+
+        item.autoCompleteProvincia.setOnItemClickListener { parent, _, position, _ ->
+            val provSeleccionada = parent.getItemAtPosition(position).toString().uppercase()
+            item.autoCompleteLocalidad.setText("", false)
+            cargarLocalidades(provSeleccionada)
+            actualizarResumen()
+            // Al seleccionar provincia, pasar foco a localidad
+            item.autoCompleteLocalidad.requestFocus()
+            (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown()
+        }
+
+        // 3. Configuración de LOCALIDADES (Combo dinámico)
+        item.autoCompleteLocalidad.setOnClickListener { (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown() }
+        item.autoCompleteLocalidad.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown()
+                ejecutarAutoScroll(view)
+                view.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                view.setBackgroundResource(0)
+            }
+        }
+        item.autoCompleteLocalidad.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
+                item.etCP.requestFocus()
+                true
+            } else false
+        }
+
+        item.autoCompleteLocalidad.setOnItemClickListener { parent, _, position, _ ->
+            val locSeleccionada = parent.getItemAtPosition(position).toString().uppercase()
+            if (locSeleccionada.equals("CHIVILCOY", ignoreCase = true)) {
+                item.etCP.setText("6620")
+            }
+            actualizarResumen()
+            // Al seleccionar localidad, pasar foco a CP
+            item.etCP.requestFocus()
+        }
+
+        item.etCP.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                (activity as? MainActivity)?.hideKeyboard()
+                item.etCP.clearFocus()
+                true
+            } else false
+        }
+
+        item.etCP.doAfterTextChanged { actualizarResumen() }
+
+        // Configurar auto-scroll para este formulario
+        configurarAutoScrollEnCampos(item)
+    }
+
+    private fun configurarAutoScrollEnCampos(item: ItemDatosVinculoBinding) {
+        val inputs = listOf(
+            item.etNombre to item.tvTituloFormulario,
+            item.etDni to null,
+            item.etLicencia to null,
+            item.etCalle to null,
+            item.etCalleNro to null,
+            item.autoCompleteProvincia to null,
+            item.autoCompleteLocalidad to null,
+            item.etCP to null
+        )
+
+        inputs.forEach { (editText, target) ->
+            editText.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    // Mostrar dropdown si es un AutoComplete
+                    (view as? AutoCompleteTextView)?.showDropDown()
+
+                    if (!editText.text.isNullOrEmpty()) {
+                        editText.selectAll()
+                    }
+                    ejecutarAutoScroll(target ?: view)
+                    view.setBackgroundResource(R.drawable.bg_edittext_focused)
                 } else {
-                    binding.layoutDatosVinculoExtra.visibility = View.VISIBLE
+                    view.setBackgroundResource(0)
                 }
             }
         }
     }
 
+    private fun ejecutarAutoScroll(view: View) {
+        binding.scrollInfractor.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = Rect()
+            view.getDrawingRect(rect)
+            binding.scrollInfractor.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollInfractor.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
+    }
+
     private fun guardarDatosEnCaja() {
-        actaViewModel.niegaDatos = when (binding.rgDato.checkedRadioButtonId) {
-            R.id.apSiDatos -> 0
-            R.id.apNoDatos -> 1
-            R.id.apNoIdentifica -> 2
+        val niegaVal = when (binding.chipGroupEstado.checkedChipId) {
+            R.id.chipAportaDatos -> 0
+            R.id.chipSeNiega -> 1
+            R.id.chipNoEsta -> 2
             else -> -1
         }
-
+        actaViewModel.niegaDatos = niegaVal
         actaViewModel.motivoDatos = binding.etObservaciones.text.toString()
-        actaViewModel.ApellidoNombreInfractor = binding.etNombre.text.toString()
-        actaViewModel.dniInfractor = binding.etDni.text.toString()
-        actaViewModel.tieneLicencia = (binding.rgLicencia.checkedRadioButtonId == R.id.rbSiLicencia)
-        actaViewModel.nroLicencia = binding.etLicencia.text.toString()
 
-        // CORREGIDO: Lee de los AutocompleteTextView nuevos
-        actaViewModel.provinciaInfractor = binding.autoCompleteProvincia.text.toString().uppercase()
-        actaViewModel.localidadInfractor = binding.autoCompleteLocalidad.text.toString().uppercase()
-        actaViewModel.cpInfractor = binding.etCP.text.toString()
+        if (niegaVal == 0) {
+            val seleccionados = mutableListOf<String>()
+            val nuevosDatosMap = mutableMapOf<String, PersonaVinculada>()
 
-        actaViewModel.calleInfractor = binding.etCalle.text.toString()
-        actaViewModel.alturaInfractor = binding.etCalleNro.text.toString()
+            for (i in 0 until binding.containerFormulariosDinamicos.childCount) {
+                val view = binding.containerFormulariosDinamicos.getChildAt(i)
+                val rolOriginal = view.tag.toString()
+                val item = ItemDatosVinculoBinding.bind(view)
+                
+                seleccionados.add(rolOriginal)
 
-        if (binding.layoutDatosVinculoExtra.visibility == View.VISIBLE) {
-            actaViewModel.nombreResponsable = binding.etNombreVinculo.text.toString()
-            actaViewModel.dniResponsable = binding.etDniVinculo.text.toString()
-            actaViewModel.calleResponsable = binding.etCalleVinculo.text.toString()
-            actaViewModel.alturaResponsable = binding.etCalleNroVinculo.text.toString()
+                val persona = PersonaVinculada(
+                    nombre = item.etNombre.text.toString(),
+                    dni = item.etDni.text.toString(),
+                    tieneLicencia = item.chipGroupLicencia.checkedChipId == R.id.chipLicenciaSi,
+                    nroLicencia = item.etLicencia.text.toString(),
+                    calle = item.etCalle.text.toString(),
+                    altura = item.etCalleNro.text.toString(),
+                    provincia = item.autoCompleteProvincia.text.toString(),
+                    localidad = item.autoCompleteLocalidad.text.toString(),
+                    cp = item.etCP.text.toString()
+                )
+                nuevosDatosMap[rolOriginal] = persona
+            }
+            actaViewModel.vinculoLugar = seleccionados.joinToString(", ")
+            actaViewModel.datosPersonasVinculadas = nuevosDatosMap
+
+            // Sincronizar con campos principales para compatibilidad (usando el primer formulario inflado)
+            if (nuevosDatosMap.isNotEmpty()) {
+                val primeraPersona = nuevosDatosMap.values.first()
+                actaViewModel.ApellidoNombreInfractor = primeraPersona.nombre
+                actaViewModel.dniInfractor = primeraPersona.dni
+                actaViewModel.tieneLicencia = primeraPersona.tieneLicencia
+                actaViewModel.nroLicencia = primeraPersona.nroLicencia
+                actaViewModel.calleInfractor = primeraPersona.calle
+                actaViewModel.alturaInfractor = primeraPersona.altura
+                actaViewModel.provinciaInfractor = primeraPersona.provincia
+                actaViewModel.localidadInfractor = primeraPersona.localidad
+                actaViewModel.cpInfractor = primeraPersona.cp
+            }
+        } else {
+            // Si se niega o no está, limpiamos los datos para no persistir basura
+            actaViewModel.vinculoLugar = ""
+            actaViewModel.datosPersonasVinculadas.clear()
+            actaViewModel.ApellidoNombreInfractor = ""
+            actaViewModel.dniInfractor = ""
+            actaViewModel.tieneLicencia = false
+            actaViewModel.nroLicencia = ""
+            actaViewModel.calleInfractor = ""
+            actaViewModel.alturaInfractor = ""
         }
     }
 
-    private fun parsearDatosDNI(datos: String) {
+    private fun parsearDatosDNI(datos: String, item: ItemDatosVinculoBinding) {
         try {
             val rawData = datos.trim()
+            Log.d("SCANNER_RAW", "Trama leída ($rawData)")
+
             if (rawData.contains("@")) {
                 val campos = rawData.split("@")
+                Log.d("SCANNER_RAW", "Cantidad de campos: ${campos.size}")
+
                 if (campos.size >= 5) {
                     val apellido = campos[1].trim().uppercase()
                     val nombre = campos[2].trim().uppercase()
                     val dni = campos[4].trim()
 
-                    binding.etNombre.setText("$apellido $nombre")
-                    binding.etDni.setText(dni)
-                    binding.etLicencia.setText(dni)
+                    item.etNombre.setText("$apellido $nombre")
+                    item.etDni.setText(dni)
 
-                    Toast.makeText(requireContext(), "DNI detectado: $dni", Toast.LENGTH_SHORT).show()
+                    // Si el chip de licencia está en "Sí" y la sección es visible, autocompletamos
+                    if (item.chipLicenciaSi.isChecked && item.cardLicencia.isVisible) {
+                        item.etLicencia.setText(dni)
+                    }
+
+                    // Limpiar calle y nro al escanear un nuevo DNI para evitar datos cruzados
+                    item.etCalle.text?.clear()
+                    item.etCalleNro.text?.clear()
+                    
+                    // Foco en la calle para continuar la carga
+                    item.etCalle.requestFocus()
+
+                    Toast.makeText(requireContext(), "DNI Escaneado: $dni", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Formato de DNI no reconocido", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
-            Log.e("SCANNER", "Error al parsear: ${e.message}")
+            Log.e("SCANNER", "Error al parsear DNI: ${e.message}")
+            Toast.makeText(requireContext(), "Error al leer datos del DNI", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun configurarAutoScroll(view: View) {
-        view.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                binding.scrollInfractor.isSmoothScrollingEnabled = true
-                binding.scrollInfractor.postDelayed({
-                    v.scrollTo(0, 0)
-                    val rect = android.graphics.Rect(0, 0, v.width, v.height)
-                    v.requestRectangleOnScreen(rect, false)
-                }, 300)
-            }
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 }

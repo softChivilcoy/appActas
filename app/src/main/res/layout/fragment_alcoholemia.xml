@@ -5,7 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:padding="16dp">
+    android:padding="12dp"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,10 +19,10 @@
             android:text="⚖️ MEDIDAS PREVENTIVAS"
             android:textColor="#33BB66"
             android:textStyle="bold"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:layout_marginBottom="16dp"/>
 
-        <!-- 1. CHECK DE ALCOHOLEMIA -->
+        <!-- 1. CHECK DE ALCOHOLEMIA (Visibilidad controlada por código) -->
         <CheckBox
             android:id="@+id/checkHacerTest"
             android:layout_width="match_parent"
@@ -29,12 +30,12 @@
             android:text="Realizar Test de Alcoholemia"
             android:textSize="15sp"/>
 
-        <!-- 2. CARD DE TEST -->
+        <!-- 2. CARD DE TEST DE ALCOHOLEMIA -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardTest"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="visible"
+            android:visibility="gone"
             app:cardBackgroundColor="#FFF0F0"
             app:strokeColor="#FFCDD2"
             app:strokeWidth="1dp"
@@ -157,29 +158,15 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 3. RESTO DE LAS MEDIDAS PREVENTIVAS -->
-        <CheckBox
-            android:id="@+id/checkRetencionVehiculo"
+        <!-- 3. CONTENEDOR DINÁMICO DE TIPOS DE BIENES DE LA REPARTICIÓN -->
+        <LinearLayout
+            android:id="@+id/containerBienesPreventivos"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Retención de Vehículo"
-            android:textSize="15sp" />
+            android:orientation="vertical"
+            android:layout_marginTop="8dp" />
 
-        <CheckBox
-            android:id="@+id/checkRetencionLicencia"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Retención de Licencia de Conducir"
-            android:textSize="15sp" />
-
-        <CheckBox
-            android:id="@+id/checkAnimal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Retención de Animal"
-            android:textSize="15sp" />
-
-        <!-- BOTONES -->
+        <!-- BOTONES DE NAVEGACIÓN -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -192,7 +179,10 @@
                 android:layout_width="0dp"
                 android:layout_height="60dp"
                 android:layout_weight="1"
-                android:text="VOLVER"/>
+                android:text="VOLVER"
+                app:icon="@drawable/ic_arrow_back_thin"
+                app:iconGravity="textStart"
+                android:layout_marginEnd="8dp"/>
             <Button
                 android:id="@+id/btnSiguienteAlco"
                 android:layout_width="0dp"
@@ -200,9 +190,11 @@
                 android:layout_weight="2"
                 android:text="SIGUIENTE:  ⮕"
                 android:backgroundTint="#33BB66"
-                android:layout_marginStart="8dp"/>
+                />
         </LinearLayout>
 
-        <Space android:layout_width="match_parent" android:layout_height="80dp" />
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="250dp" />
     </LinearLayout>
 </ScrollView>

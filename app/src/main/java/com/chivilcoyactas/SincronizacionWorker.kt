@@ -58,7 +58,7 @@ class SincronizacionWorker(
             // 3. Compresión y armado de Partes Multipart para Fotos de inspección/tránsito
             val listaMultipartFotos = mutableListOf<MultipartBody.Part>()
 
-            actaCompletaDb.media.forEach { mediaEntity ->
+            actaCompletaDb.media.forEachIndexed { index, mediaEntity ->
                 val archivoOriginal = File(mediaEntity.rutaArchivo)
 
                 if (archivoOriginal.exists()) {
@@ -68,21 +68,47 @@ class SincronizacionWorker(
                     val requestFile = archivoOptimizado.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     val partFoto = MultipartBody.Part.createFormData("fotos[]", archivoOptimizado.name, requestFile)
                     listaMultipartFotos.add(partFoto)
+
+                    // 🚀 Metadatos específicos para Laravel (Sincronización Atómica de Fotos)
+                    listaMultipartFotos.add(MultipartBody.Part.createFormData("tipo_media_$index", mediaEntity.tipoMedia))
+                    listaMultipartFotos.add(MultipartBody.Part.createFormData("latitud_$index", actaCompletaDb.cabecera.latitud.toString()))
+                    listaMultipartFotos.add(MultipartBody.Part.createFormData("longitud_$index", actaCompletaDb.cabecera.longitud.toString()))
                 } else {
                     Log.w("WORKER_SINCRO", "Foto no hallada en almacenamiento local: ${mediaEntity.rutaArchivo}")
                 }
             }
 
             // 🚀 3.1 Armado de las partes Multipart para las FIRMAS (PNG)
-            val parteFirmaInfractor = crearPartFirma("firma_infractor", actaCompletaDb.infractor?.firmaPath)
-            val parteFirmaTestigo = crearPartFirma("firma_testigo", actaCompletaDb.testigos.firstOrNull()?.firmaPath)
+            val listaMultipartFirmas = mutableListOf<MultipartBody.Part>()
+            actaCompletaDb.infractores.forEachIndexed { index, infractor ->
+                crearPartFirma("firmas[$index]", infractor.firmaPath)?.let {
+                    listaMultipartFirmas.add(it)
+                }
+            }
+            
+            // Para mantener compatibilidad con backends que esperan 'firma_infractor' (opcional)
+            crearPartFirma("firma_infractor", actaCompletaDb.infractores.firstOrNull()?.firmaPath)?.let {
+                listaMultipartFirmas.add(it)
+            }
+
+            val listaMultipartTestigos = mutableListOf<MultipartBody.Part>()
+            actaCompletaDb.testigos.forEachIndexed { index, testigo ->
+                crearPartFirma("firmas_testigos[$index]", testigo.firmaPath)?.let {
+                    listaMultipartTestigos.add(it)
+                }
+            }
+
+            // Firma de testigo principal (compatibilidad legacy)
+            crearPartFirma("firma_testigo", actaCompletaDb.testigos.firstOrNull()?.firmaPath)?.let {
+                listaMultipartTestigos.add(it)
+            }
 
             // 4. Envío HTTP a Laravel mediante Retrofit
             val response = RetrofitClient.apiService.enviarActaMultipart(
                 datosPart,
                 listaMultipartFotos,
-                parteFirmaInfractor,
-                parteFirmaTestigo
+                listaMultipartFirmas,
+                listaMultipartTestigos
             )
 
             if (response.isSuccessful && response.body()?.success == true) {

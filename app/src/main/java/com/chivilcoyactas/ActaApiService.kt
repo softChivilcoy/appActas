@@ -22,8 +22,8 @@ interface ActaApiService {
     suspend fun enviarActaMultipart(
         @Part("acta_datos") datosActa: RequestBody,
         @Part fotos: List<MultipartBody.Part>,
-        @Part firmaInfractor: MultipartBody.Part?, // 👈 AGREGADO (Nullable)
-        @Part firmaTestigo: MultipartBody.Part?    // 👈 AGREGADO (Nullable)
+        @Part firmas: List<MultipartBody.Part>,
+        @Part firmasTestigos: List<MultipartBody.Part>
     ): Response<SincronizacionResponse>
 
     @GET("api/catalogos")

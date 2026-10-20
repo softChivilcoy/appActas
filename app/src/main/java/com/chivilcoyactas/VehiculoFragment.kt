@@ -1,7 +1,12 @@
 package com.chivilcoyactas
 
+import android.content.Context
 import android.os.Bundle
 import android.text.InputFilter
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,10 +17,13 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.ScrollView
 import androidx.core.widget.NestedScrollView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.activityViewModels
 import com.chivilcoyactas.databinding.FragmentVehiculoBinding
 import kotlin.getValue
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -42,12 +50,41 @@ class VehiculoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Forzar scroll al inicio al entrar/volver
+        binding.scrollVehiculo.post { binding.scrollVehiculo.scrollTo(0, 0) }
+
+        // Aplicar padding dinámico según el teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollVehiculo) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val density = resources.displayMetrics.density
+            val extraPadding = (32 * density).toInt()
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, imeHeight + extraPadding)
+            insets
+        }
+
         // 1. Actualizar barra al Paso 4
         (activity as? MainActivity)?.actualizarProgreso(4)
 
-        // En el onViewCreated o al inicializar tus vistas:
         val autoFilterUpper = InputFilter.AllCaps()
 
+        // Configurar selector de formato de patente
+        configurarSelectorFormatoPatente()
+
+        // Redirigir foco si el dominio está deshabilitado
+        binding.viewPatenteOverlay.setOnClickListener {
+            if (!binding.etDominio.isEnabled) {
+                resaltarCardFormatoPatente()
+            } else {
+                binding.etDominio.requestFocus()
+                (activity as? MainActivity)?.mostrarTeclado(binding.etDominio)
+            }
+        }
+        binding.cardFormatoPatente.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                binding.cardFormatoPatente.strokeColor = android.graphics.Color.LTGRAY
+                binding.cardFormatoPatente.strokeWidth = (1 * resources.displayMetrics.density).toInt()
+            }
+        }
 
         binding.autoCompleteMarca.filters = arrayOf(autoFilterUpper)
         binding.autoCompleteModelo.filters = arrayOf(autoFilterUpper)
@@ -55,6 +92,9 @@ class VehiculoFragment : Fragment() {
         // Habilitar edición de texto libre y teclado estándar en Marcas y Modelos
         binding.autoCompleteMarca.keyListener = android.text.method.TextKeyListener.getInstance()
         binding.autoCompleteModelo.keyListener = android.text.method.TextKeyListener.getInstance()
+
+        binding.autoCompleteMarca.dropDownVerticalOffset = -20
+        binding.autoCompleteModelo.dropDownVerticalOffset = -20
 
         // ==========================================
         // 🚀 CONTROL DE COMBOS DINÁMICOS DESDE ROOM
@@ -75,10 +115,23 @@ class VehiculoFragment : Fragment() {
             val seleccion = parent.getItemAtPosition(position).toString()
             actaViewModel.tipoVehiculo = seleccion
 
-            val objetoTipo = actaViewModel.todosLosTiposVehiculo.value?.find { it.nombre == seleccion }
-            actaViewModel.idTipoVehiculoSeleccionado = objetoTipo?.id ?: 0
+            val esMoto = seleccion.equals("MOTOCICLETA", ignoreCase = true) ||
+                    seleccion.equals("CICLOMOTOR", ignoreCase = true)
 
+            // 1. Actualizamos textos de los Chips según tipo de vehículo
+            actualizarTextosChips(esMoto)
+
+            // 2. Limpiamos el texto ingresado y desmarcamos la patente
             binding.etDominio.text?.clear()
+            binding.cgFormatoPatente.clearCheck()
+            binding.etDominio.isEnabled = false
+            binding.viewPatenteOverlay.visibility = View.VISIBLE
+
+            // 3. Resaltar la selección de patente y hacer scroll
+            binding.cardFormatoPatente.strokeColor = resources.getColor(R.color.primary_chivilcoy, null)
+            binding.cardFormatoPatente.strokeWidth = (2 * resources.displayMetrics.density).toInt()
+            binding.cardFormatoPatente.requestFocus()
+            ejecutarAutoScroll(binding.cardFormatoPatente)
         }
 
         // 2. CARGA DE MARCAS Y RESTAURACIÓN DE MODELOS
@@ -90,7 +143,6 @@ class VehiculoFragment : Fragment() {
             if (actaViewModel.marca.isNotEmpty()) {
                 binding.autoCompleteMarca.setText(actaViewModel.marca, false)
 
-                // Verificamos de forma segura usando el operador elvis (?:) o asignación local
                 val idMarca = actaViewModel.idMarcaSeleccionada
                 if (idMarca != null && idMarca > 0) {
                     cargarModelosPorMarca(idMarca)
@@ -103,50 +155,50 @@ class VehiculoFragment : Fragment() {
             actaViewModel.marca = marcaSeleccionada
 
             val objetoMarca = actaViewModel.todasLasMarcas.value?.find { it.nombre == marcaSeleccionada }
-            val marcaId = objetoMarca?.id ?: 0 // Si no lo encuentra, asigna 0
+            val marcaId = objetoMarca?.id ?: 0
 
-            // Guardamos en el ViewModel (será null si es 0)
             actaViewModel.idMarcaSeleccionada = if (marcaId > 0) marcaId else null
 
-            // Limpiamos el combo de modelos al cambiar la marca
             binding.autoCompleteModelo.text?.clear()
             actaViewModel.modelo = ""
             actaViewModel.idModeloSeleccionado = null
 
-            // Si tenemos un ID válido, cargamos los modelos de esa marca
             if (marcaId > 0) {
                 cargarModelosPorMarca(marcaId)
             }
+            binding.autoCompleteModelo.requestFocus()
         }
 
         // 3. SELECCIÓN DE MODELO
-        binding.autoCompleteModelo.setOnItemClickListener { parent, _, position, _ ->
+        binding.autoCompleteModelo.setOnItemClickListener { parent, view, position, _ ->
             val modeloSeleccionado = parent.getItemAtPosition(position).toString()
             actaViewModel.modelo = modeloSeleccionado
 
             // Buscamos el ID real desde la lista filtrada guardada en memoria
             val objetoModelo = listaModelosActuales.find { it.nombre.equals(modeloSeleccionado, ignoreCase = true) }
             actaViewModel.idModeloSeleccionado = objetoModelo?.id ?: 0
+
+            // Ocultar teclado y quitar el foco de la vista
+            (activity as? MainActivity)?.hideKeyboard()
+            binding.autoCompleteModelo.clearFocus()
         }
 
-        // Listener para formatear patente
-        binding.etDominio.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        binding.autoCompleteModelo.setOnEditorActionListener { v, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_NEXT ||
+                actionId == EditorInfo.IME_ACTION_DONE ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
 
-            override fun afterTextChanged(s: android.text.Editable?) {
-                val texto = s.toString().replace(" ", "").uppercase()
-                val tipo = actaViewModel.tipoVehiculo
+                // 1. Ocultar el teclado del POS/dispositivo
+                (activity as? MainActivity)?.hideKeyboard()
 
-                if (tipo == "MOTOCICLETA" || tipo == "CICLOMOTOR") {
-                    actualizarTecladoMoto(texto)
-                } else {
-                    actualizarTecladoAuto(texto)
-                }
+                // 2. Quitar el foco para no mantener resaltado el campo
+                v.clearFocus()
 
-                binding.etDominio.setSelection(binding.etDominio.text?.length ?: 0)
+                true // Consume el evento
+            } else {
+                false
             }
-        })
+        }
 
         // Listener para desplegar/ocultar datos del propietario
         binding.checkEsPropietario.setOnCheckedChangeListener { _, isChecked ->
@@ -181,10 +233,88 @@ class VehiculoFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        // Configurar autoscroll
-        configurarAutoScroll(binding.etDominio)
-        configurarAutoScroll(binding.autoCompleteMarca)
-        configurarAutoScroll(binding.autoCompleteModelo)
+        // Configurar autoscroll y selección
+        setupFocusListeners()
+    }
+
+    private fun setupFocusListeners() {
+        // AutoCompleteTextViews
+        binding.autoCompleteTipoVehiculo.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.autoCompleteTipoVehiculo.showDropDown()
+                ejecutarAutoScroll(binding.inputLayoutTipoVehiculo)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.autoCompleteMarca.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.autoCompleteMarca.showDropDown()
+                ejecutarAutoScroll(binding.inputMarca)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.autoCompleteModelo.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.autoCompleteModelo.showDropDown()
+                ejecutarAutoScroll(binding.inputModelo)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+
+        binding.autoCompleteTipoVehiculo.setOnClickListener { binding.autoCompleteTipoVehiculo.showDropDown() }
+        binding.autoCompleteMarca.setOnClickListener { binding.autoCompleteMarca.showDropDown() }
+        binding.autoCompleteModelo.setOnClickListener { binding.autoCompleteModelo.showDropDown() }
+
+        // EditTexts
+        binding.etDominio.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etDominio.selectAll()
+                ejecutarAutoScroll(binding.inputDominio)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.etNombrePropietario.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etNombrePropietario.selectAll()
+                ejecutarAutoScroll(binding.inputNombrePropietario)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.etDniPropietario.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etDniPropietario.selectAll()
+                ejecutarAutoScroll(binding.inputDniPropietario)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+    }
+
+    private fun ejecutarAutoScroll(view: View) {
+        binding.scrollVehiculo.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = android.graphics.Rect()
+            view.getDrawingRect(rect)
+            binding.scrollVehiculo.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollVehiculo.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
     }
 
     // Función auxiliar privada para cargar los modelos filtrados desde Room
@@ -204,15 +334,6 @@ class VehiculoFragment : Fragment() {
     }
 
     private fun ejecutarSiguiente() {
-        // 1. Datos del responsable/propietario
-        if (!binding.checkEsPropietario.isChecked) {
-            actaViewModel.nombreResponsable = binding.etNombrePropietario.text.toString().trim().uppercase()
-            actaViewModel.dniResponsable = binding.etDniPropietario.text.toString().trim()
-        } else {
-            actaViewModel.nombreResponsable = actaViewModel.ApellidoNombreInfractor
-            actaViewModel.dniResponsable = actaViewModel.dniInfractor
-        }
-
         // 2. Guardar textos en el ViewModel desde las vistas
         actaViewModel.tipoVehiculo = binding.autoCompleteTipoVehiculo.text.toString().trim()
         actaViewModel.marca = binding.autoCompleteMarca.text.toString().trim().uppercase()
@@ -221,7 +342,6 @@ class VehiculoFragment : Fragment() {
         actaViewModel.esPropietario = binding.checkEsPropietario.isChecked
 
         // 3. Validación de consistencia para IDs
-        // Si el usuario modificó manualmente el texto y no coincide con una selección previa de catálogo, reseteamos el ID a null
         if (actaViewModel.marca.isEmpty()) {
             actaViewModel.idMarcaSeleccionada = null
         }
@@ -233,72 +353,143 @@ class VehiculoFragment : Fragment() {
         findNavController().navigate(R.id.action_vehiculo_to_alcoholemia)
     }
 
-    private fun configurarAutoScroll(view: View) {
-        view.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                binding.scrollVehiculo.isSmoothScrollingEnabled = true
-                binding.scrollVehiculo.postDelayed({
-                    val rect = android.graphics.Rect(0, 0, v.width, v.height)
-                    v.requestRectangleOnScreen(rect, false)
-                }, 300)
+    private fun configurarSelectorFormatoPatente() {
+        // Listener del ChipGroup
+        binding.cgFormatoPatente.setOnCheckedStateChangeListener { _, checkedIds ->
+            val selectedId = checkedIds.firstOrNull()
+            binding.etDominio.isEnabled = selectedId != null
+
+            if (selectedId != null) {
+                // Restaurar color de borde original al seleccionar
+                binding.cardFormatoPatente.setStrokeColor(android.graphics.Color.LTGRAY)
+                binding.cardFormatoPatente.strokeWidth = (1 * resources.displayMetrics.density).toInt()
+
+                // Ocultar mensaje de error
+                binding.tvErrorPatente.visibility = View.GONE
+
+                // Ocultar overlay para permitir interacción directa
+                binding.viewPatenteOverlay.visibility = View.GONE
+
+                binding.etDominio.text?.clear()
+
+                // Aplica los filtros de caracteres y el tipo de teclado
+                actualizarFormatoSegunSeleccion()
+
+                // Hacer foco en el EditText de la patente y solicitar el teclado
+                binding.etDominio.requestFocus()
             }
+        }
+
+        // Listener de formateo del texto (mayúsculas/transición automática)
+        binding.etDominio.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val textoLimpio = s.toString().replace(" ", "").uppercase()
+                if (s.toString() != textoLimpio) {
+                    binding.etDominio.setText(textoLimpio)
+                    binding.etDominio.setSelection(binding.etDominio.text?.length ?: 0)
+                }
+
+                gestionarTransicionTeclado(textoLimpio)
+            }
+        })
+    }
+
+    // 🚀 Actualiza los textos de los Chips según si es Auto o Moto
+    private fun actualizarTextosChips(esMoto: Boolean) {
+        if (esMoto) {
+            binding.chipPatenteVieja.text = "Vieja (123ABC)"
+            binding.chipPatenteNueva.text = "Nueva (A123BCD)"
+        } else {
+            binding.chipPatenteVieja.text = "Vieja (ABC123)"
+            binding.chipPatenteNueva.text = "Nueva (AA123BB)"
         }
     }
 
-    private fun actualizarTecladoAuto(texto: String) {
-        when {
-            texto.length < 3 -> abrirTecladoTexto()
-            texto.length in 3..4 -> abrirTecladoNumerico()
-            texto.length >= 5 -> {
-                val centroNumerico = texto.substring(2, 5)
-                if (centroNumerico.all { it.isDigit() }) {
-                    abrirTecladoTexto()
-                } else {
-                    abrirTecladoNumerico()
+    private fun actualizarFormatoSegunSeleccion() {
+        val esVieja = binding.chipPatenteVieja.isChecked
+        val esMoto = actaViewModel.tipoVehiculo.equals("MOTOCICLETA", ignoreCase = true) ||
+                actaViewModel.tipoVehiculo.equals("CICLOMOTOR", ignoreCase = true)
+
+        // Ajusta la longitud máxima (Vieja: 6, Nueva: 7)
+        binding.etDominio.filters = arrayOf(android.text.InputFilter.LengthFilter(if (esVieja) 6 else 7))
+
+        // Asigna el tipo de entrada y despliega el teclado
+        if (esMoto && esVieja) {
+            abrirTecladoNumerico() // Moto vieja: 123ABC
+        } else {
+            abrirTecladoTexto()    // Autos y moto nueva arrancan con letras
+        }
+        (activity as? MainActivity)?.mostrarTeclado(binding.etDominio)
+    }
+
+    private fun gestionarTransicionTeclado(texto: String) {
+        val esVieja = binding.chipPatenteVieja.isChecked
+        val esMoto = actaViewModel.tipoVehiculo.equals("MOTOCICLETA", ignoreCase = true) ||
+                actaViewModel.tipoVehiculo.equals("CICLOMOTOR", ignoreCase = true)
+
+        if (esMoto) {
+            if (esVieja) {
+                // MOTO VIEJA: 123 ABC (3 Números -> 3 Letras)
+                if (texto.length < 3) abrirTecladoNumerico() else abrirTecladoTexto()
+            } else {
+                // MOTO NUEVA: A 123 BCD (1 Letra -> 3 Números -> 3 Letras)
+                when (texto.length) {
+                    0 -> abrirTecladoTexto()
+                    in 1..3 -> abrirTecladoNumerico()
+                    else -> abrirTecladoTexto()
                 }
             }
-        }
-    }
-
-    private fun actualizarTecladoMoto(texto: String) {
-        when {
-            // 1. Si está vacío, empezamos con TEXTO (sirve para ambos formatos)
-            texto.isEmpty() -> abrirTecladoTexto()
-
-            // 2. DETECCIÓN DE FORMATO: Miramos el primer carácter
-            texto.length >= 1 -> {
-                val empiezaConLetra = texto[0].isLetter()
-
-                if (empiezaConLetra) {
-                    // FORMATO NUEVO: A 123 BCD
-                    if (texto.length in 1..3) {
-                        abrirTecladoNumerico() // Después de la A, vienen números
-                    } else {
-                        abrirTecladoTexto()    // Después de los números, vuelven letras
-                    }
-                } else {
-                    // FORMATO VIEJO: 123 ABC
-                    if (texto.length < 3) {
-                        abrirTecladoNumerico() // Siguen siendo números
-                    } else {
-                        abrirTecladoTexto()    // Después de 3 números, vienen letras
-                    }
+        } else {
+            if (esVieja) {
+                // AUTO VIEJO: ABC 123 (3 Letras -> 3 Números)
+                if (texto.length < 3) abrirTecladoTexto() else abrirTecladoNumerico()
+            } else {
+                // AUTO NUEVO: AA 123 BB (2 Letras -> 3 Números -> 2 Letras)
+                when (texto.length) {
+                    in 0..1 -> abrirTecladoTexto()
+                    in 2..4 -> abrirTecladoNumerico()
+                    else -> abrirTecladoTexto()
                 }
             }
         }
     }
 
     private fun abrirTecladoNumerico() {
-        if (binding.etDominio.inputType != android.text.InputType.TYPE_CLASS_NUMBER) {
-            binding.etDominio.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        val nuevoType = InputType.TYPE_CLASS_NUMBER
+        if (binding.etDominio.inputType != nuevoType) {
+            binding.etDominio.inputType = nuevoType
+            refrescarTeclado()
         }
     }
 
     private fun abrirTecladoTexto() {
-        val modoTexto = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
-        if (binding.etDominio.inputType != modoTexto) {
-            binding.etDominio.inputType = modoTexto
+        val nuevoType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        if (binding.etDominio.inputType != nuevoType) {
+            binding.etDominio.inputType = nuevoType
+            refrescarTeclado()
         }
+    }
+
+    // 🚀 Fuerza a Android / POS 3nStar a reconstruir el teclado activo
+    private fun refrescarTeclado() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.restartInput(binding.etDominio)
+    }
+
+    private fun resaltarCardFormatoPatente() {
+        binding.cardFormatoPatente.strokeColor = resources.getColor(R.color.primary_chivilcoy, null)
+        binding.cardFormatoPatente.strokeWidth = (2 * resources.displayMetrics.density).toInt()
+
+        // Mostrar mensaje de error
+        binding.tvErrorPatente.visibility = View.VISIBLE
+
+        binding.cardFormatoPatente.requestFocus()
+        ejecutarAutoScroll(binding.cardFormatoPatente)
     }
 }

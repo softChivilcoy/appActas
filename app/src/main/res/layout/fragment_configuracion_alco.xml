@@ -129,7 +129,7 @@
                         android:id="@+id/etConfigModelo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textCapCharacters"
+                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                         android:focusable="false"
                         android:clickable="false"
                         android:singleLine="true"/>

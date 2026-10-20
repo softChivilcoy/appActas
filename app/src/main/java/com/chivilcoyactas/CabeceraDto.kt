@@ -23,6 +23,8 @@ data class CabeceraDto(
     @SerializedName("idjuzgado") val idJuzgado: Int?,
     @SerializedName("idreparticion") val idReparticion: Int?,
     @SerializedName("detallefalta") val detalleFalta: String?,
+    @SerializedName("observaciones") val observaciones: String?, // 🚀 Agregado
+    @SerializedName("tipo_inmueble") val tipoInmueble: String?,   // 🚀 Agregado
     @SerializedName("serie") val serie: String,
     @SerializedName("punto_emision_id") val puntoEmisionId: Int?,
     @SerializedName("anio") val anio: Int,

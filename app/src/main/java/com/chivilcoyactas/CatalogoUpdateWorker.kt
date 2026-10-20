@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.chivilcoyactas.mappers.toEntity // 👈 Importamos la función mapper
 import com.chivilcoyactas.net.RetrofitClient
 
 class CatalogoUpdateWorker(
@@ -50,7 +51,7 @@ class CatalogoUpdateWorker(
                     TipoLocalidadEntity(id = it.id, nombre = it.nombre, provinciaId = it.idProvincia)
                 }
                 val listaActas = catalogos.tiposActa.map {
-                    TipoActaEntity(id = it.id, nombre = it.nombre)
+                    TipoActaEntity(id = it.id, nombre = it.nombre, requiereFaltas = it.requiereFaltas)
                 }
 
                 val listaQuincenas = catalogos.quincenas.map {
@@ -78,12 +79,20 @@ class CatalogoUpdateWorker(
                     )
                 } ?: emptyList()
 
-                val listaTipoVehiculoCheck= catalogos.tipoVehiculoChecklist?.map {
+                val listaTipoVehiculoCheck = catalogos.tipoVehiculoChecklist?.map {
                     TipoVehiculoCheckEntity(
                         tipoVehiculoId = it.tipoVehiculoId,
                         paramChecklistId = it.paramChecklistId,
                         ordenUi = it.ordenUi,
                         esObligatorio = it.esObligatorio
+                    )
+                } ?: emptyList()
+
+                val listaTipoRoles = catalogos.tipoRolesInvolucrado?.map {
+                    TipoRolInvolucradoEntity(
+                        id = it.id,
+                        codigo = it.codigo,
+                        requiereLicencia = it.requiereLicencia
                     )
                 } ?: emptyList()
 
@@ -100,8 +109,23 @@ class CatalogoUpdateWorker(
                     quincenas = listaQuincenas,
                     categorias = listaCategorias,
                     checkvehicular = listaCheckVehicular,
-                    tipovehicularcheck = listaTipoVehiculoCheck
+                    tipovehicularcheck = listaTipoVehiculoCheck,
+                    tipoRoles = listaTipoRoles
                 )
+
+                // 🚀 5. PROCESAMIENTO INTELIGENTE DEL EJIDO URBANO
+                catalogos.ejidoUrbano?.let { ejidoDto ->
+                    val fechaLocal = db.catalogoDao().obtenerUltimaFechaEjido()
+                    val fechaRemota = ejidoDto.updatedAt
+
+                    // Solo guardamos o reemplazamos si no existe en Room o si cambió la fecha en Laravel
+                    if (fechaLocal == null || fechaLocal != fechaRemota) {
+                        db.catalogoDao().guardarEjidoUrbano(ejidoDto.toEntity())
+                        Log.d("WORKER_CATALOGO", "✅ Ejido Urbano actualizado en Room.")
+                    } else {
+                        Log.d("WORKER_CATALOGO", "ℹ️ Ejido Urbano sin cambios. Se omite reescritura.")
+                    }
+                }
 
                 Log.d("WORKER_CATALOGO", "¡Catálogos actualizados en Room de forma limpia y transparente!")
                 Result.success()

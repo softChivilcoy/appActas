@@ -10,7 +10,7 @@ data class ActaCompleta(
         parentColumn = "idLocal",
         entityColumn = "actaId"
     )
-    val infractor: ActaInfractorEntity,
+    val infractores: List<ActaInfractorEntity>,
 
     @Relation(
         parentColumn = "idLocal",

@@ -3,11 +3,15 @@ package com.chivilcoyactas
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -46,6 +50,36 @@ class LoginFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 🚀 Habilitamos selección total de texto y autoscroll al enfocar DNI o Pass
+     //   setupAutoscrollYSeleccion()
+
+        binding.etLoginDni.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                binding.scrollLogin.post {
+                    binding.scrollLogin.smoothScrollTo(0, binding.etLoginDni.top)
+                }
+            }
+        }
+
+        binding.etLoginPass.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                binding.scrollLogin.post {
+                    binding.scrollLogin.smoothScrollTo(0, binding.etLoginPass.top)
+                }
+            }
+        }
+
+        binding.etLoginPass.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
+
+                (activity as? MainActivity)?.hideKeyboard()
+                true
+            } else {
+                false
+            }
+        }
+
         binding.btnLogin.setOnClickListener {
             val dni = binding.etLoginDni.text.toString().trim()
             val pass = binding.etLoginPass.text.toString().trim()
@@ -66,16 +100,52 @@ class LoginFragment : Fragment() {
             ejecutarLoginHttp(dni, pass)
         }
 
-        val etLoginPass = view.findViewById<TextInputEditText>(R.id.etLoginPass)
-        val btnLogin = view.findViewById<Button>(R.id.btnLogin)
-
-        etLoginPass.setOnEditorActionListener { _, actionId, _ ->
+        binding.etLoginPass.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
                 actionId == android.view.inputmethod.EditorInfo.IME_ACTION_UNSPECIFIED) {
-                btnLogin.performClick()
+                binding.btnLogin.performClick()
                 true
             } else {
                 false
+            }
+        }
+    }
+
+
+    // 📌 Función que maneja la selección total al pisar el campo y el desplazamiento suave
+    private fun setupAutoscrollYSeleccion() {
+        val inputs = listOf(binding.etLoginDni, binding.etLoginPass)
+
+        inputs.forEach { editText ->
+            val previousListener = editText.onFocusChangeListener
+
+            editText.setOnFocusChangeListener { view, hasFocus ->
+                previousListener?.onFocusChange(view, hasFocus)
+
+                if (hasFocus) {
+                    // 1. Si hay texto escrito (ej. error en legajo o pass), se selecciona todo de inmediato para escribir encima
+                    if (!editText.text.isNullOrEmpty()) {
+                        editText.post { editText.selectAll() }
+                    }
+
+                    // 2. Scroll suave sobre el ScrollView por si el teclado de pantalla lo solapa
+                    view.postDelayed({
+                        try {
+                            val parentInput = (view.parent.parent as? com.google.android.material.textfield.TextInputLayout)
+                                ?: (view.parent as? com.google.android.material.textfield.TextInputLayout)
+                                ?: view
+
+                            val rect = Rect()
+                            parentInput.getDrawingRect(rect)
+                            binding.scrollLogin.offsetDescendantRectToMyCoords(parentInput, rect)
+
+                            val targetY = (rect.top).coerceAtLeast(0)
+                            binding.scrollLogin.smoothScrollTo(0, targetY)
+                        } catch (e: Exception) {
+                            Log.e("LOGIN_SCROLL", "Error calculando scroll: ${e.message}")
+                        }
+                    }, 150)
+                }
             }
         }
     }
@@ -162,24 +232,38 @@ class LoginFragment : Fragment() {
 
                 } else {
                     // 🔍 Extraemos el mensaje de error del errorBody() en respuestas 401/403
-                    var errorMsg = "Error en la autenticación"
+                    var errorMsg = "Credenciales inválidas"
+                    var errorCode = ""
 
                     try {
                         val errorJsonString = response.errorBody()?.string()
                         if (!errorJsonString.isNullOrEmpty()) {
                             val jsonObject = org.json.JSONObject(errorJsonString)
-                            if (jsonObject.has("message")) {
-                                errorMsg = jsonObject.getString("message")
-                            }
+                            if (jsonObject.has("message")) errorMsg = jsonObject.getString("message")
+                            if (jsonObject.has("error_code")) errorCode = jsonObject.getString("error_code")
                         }
                     } catch (e: Exception) {
-                        errorMsg = response.body()?.message ?: "Credenciales o dispositivo no válidos"
+                        errorMsg = "Error en la autenticación"
                     }
 
                     if (response.code() == 403 || errorMsg.contains("dispositivo", ignoreCase = true) || errorMsg.contains("serie", ignoreCase = true)) {
                         mostrarDialogoDispositivoNoRegistrado(androidId, errorMsg)
                     } else {
                         Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_SHORT).show()
+
+                        // 🎯 LÓGICA DE FOCO SEGÚN EL ERROR REAL
+                        when {
+                            // Caso 1: El legajo/DNI no existe
+                            errorCode == "LEGAJO_NOT_FOUND" || errorMsg.contains("legajo", ignoreCase = true) || errorMsg.contains("usuario", ignoreCase = true) -> {
+                                binding.etLoginDni.error = errorMsg
+                                focarYSeleccionarCampo(binding.etLoginDni)
+                            }
+                            // Caso 2: La contraseña es incorrecta (o por defecto ante 401)
+                            else -> {
+                                binding.etLoginPass.error = errorMsg
+                                focarYSeleccionarCampo(binding.etLoginPass)
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -218,6 +302,17 @@ class LoginFragment : Fragment() {
             syncWorkRequest
         )
     }
+
+    private fun focarYSeleccionarCampo(editText: com.google.android.material.textfield.TextInputEditText) {
+        editText.requestFocus()
+        editText.post {
+            editText.selectAll()
+            // Aseguramos que el teclado blando se muestre si estaba cerrado
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.showSoftInput(editText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

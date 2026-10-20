@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
+    android:padding="12dp"
     android:fillViewport="true"
     android:isScrollContainer="true"
     android:id="@+id/scrollProcedimiento">
@@ -12,28 +12,38 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingBottom="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="📝 PROCEDIMIENTO"
-            android:textColor="#1A237E"
+            android:textColor="#33BB66"
             android:textStyle="bold"
             android:textSize="18sp"
             android:layout_marginBottom="16dp"/>
 
-        <!-- Acción a Realizar -->
+        <!-- Acción a Realizar (Editable como la calle) -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:id="@+id/tilAccion"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Acción a Realizar">
+            android:hint="Acción a Realizar"
+            app:boxStrokeColor="#33BB66"
+            app:hintTextColor="#33BB66"
+            app:endIconMode="clear_text">
+
             <AutoCompleteTextView
                 android:id="@+id/spinnerAccion"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none" />
+                android:completionThreshold="1"
+                android:dropDownHeight="220dp"
+                android:inputType="textCapWords"
+                android:selectAllOnFocus="true"
+                android:padding="16dp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <View
@@ -49,12 +59,16 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp"/>
 
-        <LinearLayout
-            android:id="@+id/containerCheckboxes"
+        <GridLayout
+            android:id="@+id/containerCategorias"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-        </LinearLayout>
+            android:columnCount="2"
+            android:layout_marginBottom="16dp"
+            android:padding="8dp"
+            android:background="@drawable/bg_border_vinculos">
+            <!-- Los Chips se agregan dinámicamente -->
+        </GridLayout>
 
         <!-- Card de Datos de Comercio -->
         <com.google.android.material.card.MaterialCardView
@@ -62,11 +76,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:visibility="gone"
             app:cardBackgroundColor="#E8EAF6"
             app:strokeColor="#C5CAE9"
             app:strokeWidth="1dp"
-            tools:visibility="visible">
+            tools:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -78,7 +91,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="🏢 DATOS DEL COMERCIO"
-                    android:textColor="#1A237E"
+                    android:textColor="#33BB66"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp"/>
@@ -92,7 +105,7 @@
                         android:id="@+id/etNombreFantasia"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textCapWords"
+                        android:inputType="textCapWords|textNoSuggestions|textVisiblePassword"
                         android:imeOptions="actionNext"
                         android:nextFocusForward="@id/etHabNumero" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -122,7 +135,7 @@
                         android:id="@+id/etRubro"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textCapSentences"
+                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                         android:imeOptions="actionNext" />
                     <!-- Nota: El destino de etRubro se define dinámicamente en Kotlin según qué Card esté abierta -->
                 </com.google.android.material.textfield.TextInputLayout>
@@ -139,8 +152,7 @@
             android:visibility="gone"
             app:cardBackgroundColor="#F8F9FA"
             app:strokeColor="#DEE2E6"
-            app:strokeWidth="1dp"
-            tools:visibility="visible">
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -152,10 +164,26 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="📍 DATOS CATASTRALES"
-                    android:textColor="#495057"
+                    android:textColor="#33BB66"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp"/>
+
+                <!-- Partida Municipal (Ahora al principio) -->
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="Partida Municipal">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPartidaMunicipal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:imeOptions="actionNext"
+                        android:nextFocusForward="@id/etCirc" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Fila 1: Circunscripcion y Seccion -->
                 <LinearLayout
@@ -191,7 +219,7 @@
                             android:id="@+id/etSeccion"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapCharacters"
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                             android:imeOptions="actionNext"
                             android:nextFocusForward="@id/etChacraNro" />
                     </com.google.android.material.textfield.TextInputLayout>
@@ -236,7 +264,7 @@
                                 android:id="@+id/etChacraLet"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="textCapCharacters"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                                 android:imeOptions="actionNext"
                                 android:nextFocusForward="@id/etQuintaNro" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -276,7 +304,7 @@
                                 android:id="@+id/etQuintaLet"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="textCapCharacters"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                                 android:imeOptions="actionNext"
                                 android:nextFocusForward="@id/etFraccionNro" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -318,7 +346,7 @@
                             android:id="@+id/etFraccionLet"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapCharacters"
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                             android:imeOptions="actionNext"
                             android:nextFocusForward="@id/etManzanaNro" />
                     </com.google.android.material.textfield.TextInputLayout>
@@ -363,7 +391,7 @@
                                 android:id="@+id/etManzanaLet"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="textCapCharacters"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                                 android:imeOptions="actionNext"
                                 android:nextFocusForward="@id/etParcelaNro" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -403,7 +431,7 @@
                                 android:id="@+id/etParcelaLet"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="textCapCharacters"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                                 android:imeOptions="actionNext"
                                 android:nextFocusForward="@id/etSubparcela" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -427,7 +455,7 @@
                             android:id="@+id/etSubparcela"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapCharacters"
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                             android:imeOptions="actionNext"
                             android:nextFocusForward="@id/etUF" />
                     </com.google.android.material.textfield.TextInputLayout>
@@ -454,34 +482,19 @@
 
         <!-- Referencia Acta -->
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutRefActa"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:visibility="visible"
             android:hint="Referencia Nº Acta (Opcional)">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etRefActa"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapCharacters"
-                android:imeOptions="actionNext"
-                android:nextFocusForward="@id/etDetalleProcedimiento" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Se procede a... -->
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Se procede a...">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etDetalleProcedimiento"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minLines="4"
-                android:gravity="top"
-                android:inputType="textMultiLine"
+                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
                 android:imeOptions="actionDone" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -500,6 +513,8 @@
                 android:layout_height="64dp"
                 android:layout_weight="1"
                 android:text="VOLVER"
+                app:icon="@drawable/ic_arrow_back_thin"
+                app:iconGravity="textStart"
                 android:layout_marginEnd="8dp"/>
 
             <Button
@@ -510,8 +525,6 @@
                 android:text="SIGUIENTE:  ⮕"
                 android:backgroundTint="#33BB66" />
         </LinearLayout>
-
-        <Space android:layout_width="match_parent" android:layout_height="200dp" />
 
     </LinearLayout>
 </ScrollView>

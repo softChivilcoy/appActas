@@ -27,7 +27,9 @@ data class ActaEntity(
     val detalleReferencia: String? = null,   // "Entre Pellegrini y Mitre" o "Frente a la escuela 1"
     val idJuzgado: Int? = null,               // Juzgado de Faltas asignado (si se define en la app)
     val idReparticion: Int? = null,              // Reparticion del Inspector
-    val detalleFalta: String? = null,                      //
+    val detalleFalta: String? = null,
+    val observaciones: String? = null,           // 🚀 Agregado: Observaciones generales (desde FotosFragment)
+    val procTipoInmueble: String? = null,        // 🚀 Agregado: Categorías de inmueble (desde ProcedimientoFragment)
     val serie: String = "E",
     val puntoEmisionId: Int = 0,
     val anio: Int,

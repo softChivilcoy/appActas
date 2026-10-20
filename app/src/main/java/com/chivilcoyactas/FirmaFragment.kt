@@ -7,6 +7,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import android.widget.TextView
+import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -42,6 +44,9 @@ class FirmaFragment : Fragment() {
     private val TIEMPO_PRESION = 2000L
 
     private var esFirmaTestigo = false
+    private var personaActual: PersonaVinculada? = null
+    private var testigoIndexActual: Int = 0
+    private var claveVinculoActual: String? = null
 
     private val handlerLongPress = android.os.Handler(android.os.Looper.getMainLooper())
     private val runnableFinalizar = Runnable { finalizarProceso() }
@@ -55,72 +60,49 @@ class FirmaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 1. Configuración inicial
+        generarBotonesDinamicos()
 
-        // 1. Configuración inicial de visibilidad y variables
-        esFirmaTestigo = false
-        binding.inputNombreTestigo.visibility = View.GONE
-
-        val tieneTestigo = !actaViewModel.Testigo1Nombre.isNullOrEmpty()
-
-        if (!tieneTestigo) {
-            binding.btnFirmaTestigo.visibility = View.GONE
-            binding.toggleGrupoFirmas.check(R.id.btnFirmaInfractor)
-            esFirmaTestigo = false // Asegurar
-        } else {
-            binding.btnFirmaTestigo.visibility = View.VISIBLE
-            binding.toggleGrupoFirmas.check(R.id.btnFirmaTestigo)
-            esFirmaTestigo = true // DEBÍA SER TRUE SI HAY TESTIGO
-
-            binding.etNombreTestigo.setText(actaViewModel.Testigo1Nombre)
-            binding.inputNombreTestigo.visibility = View.VISIBLE
-            binding.inputNombreTestigo.isEnabled = false
+        // 2. Botón volver de firma (desde el pad)
+        binding.btnVolverDeFirma.setOnClickListener {
+            binding.layoutModoFirma.visibility = View.GONE
+            binding.layoutPreparacionFirma.visibility = View.VISIBLE
+            generarBotonesDinamicos()
         }
 
-        // 2. Listener del Toggle (Quién firma)
-        // Listener para actualizar colores/estados si el inspector cambia manualmente
-        binding.toggleGrupoFirmas.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) {
-                // ESTA LÍNEA FALTABA:
-                esFirmaTestigo = (checkedId == R.id.btnFirmaTestigo)
-
-                actualizarEstadoBotonesSegunFirma()
-
-                // También actualizamos la visibilidad del nombre por si cambia manualmente
-                if (esFirmaTestigo) {
-                    binding.inputNombreTestigo.visibility = View.VISIBLE
-                } else {
-                    binding.inputNombreTestigo.visibility = View.GONE
-                }
-            }
-        }
-
-
-        // 3. Botón para pasar al modo firma
+        // 3. Botón Finalizar Acta (El que guarda todo el acta y sale)
         binding.btnIrAFirmar.setOnClickListener {
             if (binding.checkSeNiegaAFirmar.isChecked) {
-                // Si se niega, cerramos de una
                 if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     mostrarDialogoEstadoInspeccion()
                 } else {
                     guardarYEnviarAlServidor("PENDIENTE")
                 }
             } else {
-                // Si no se niega, procedemos a que firme (testigo o infractor)
-                if (esFirmaTestigo && binding.etNombreTestigo.text.isNullOrEmpty()) {
-                    binding.etNombreTestigo.error = "Ingrese nombre"
+                // Si no se niega, verificamos si hay al menos una firma o si es obligatorio
+                val hayAlgunaFirma = !actaViewModel.Testigo1FirmaPath.isNullOrEmpty() || 
+                                     !actaViewModel.Testigo2FirmaPath.isNullOrEmpty() || 
+                                     !actaViewModel.firmaInfractorPath.isNullOrEmpty() ||
+                                     actaViewModel.datosPersonasVinculadas.values.any { !it.firmaPath.isNullOrEmpty() }
+
+                if (!hayAlgunaFirma) {
+                    Toast.makeText(requireContext(), "Debe registrar al menos una firma o marcar que se niega", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
-                prepararModoFirma(esFirmaTestigo)
+
+                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+                    mostrarDialogoEstadoInspeccion()
+                } else {
+                    guardarYEnviarAlServidor("PENDIENTE")
+                }
             }
         }
 
         binding.checkSeNiegaAFirmar.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 binding.btnIrAFirmar.text = "FINALIZAR ACTA (SE NIEGA)"
-                binding.btnIrAFirmar.setBackgroundColor(android.graphics.Color.parseColor("#B71C1C")) // Rojo
             } else {
-                binding.btnIrAFirmar.text = "ENTREGAR PARA FIRMAR"
-                binding.btnIrAFirmar.setBackgroundColor(android.graphics.Color.parseColor("#007BFF")) // Azul
+                binding.btnIrAFirmar.text = "SIGUIENTE"
             }
         }
 
@@ -131,13 +113,13 @@ class FirmaFragment : Fragment() {
             override fun onSigned() {
                 // Cuando hay firma, mostramos el botón y lo habilitamos
                 binding.btnFinalizarActa.visibility = View.VISIBLE
-                binding.btnFinalizarActa.isEnabled = true
+                habilitarBotonFinalizar(true)
             }
 
             override fun onClear() {
                 // Si borran la firma, ocultamos el botón y cancelamos cualquier proceso de presión
                 binding.btnFinalizarActa.visibility = View.GONE
-                binding.btnFinalizarActa.isEnabled = false
+                habilitarBotonFinalizar(false)
                 handlerLongPress.removeCallbacks(runnableFinalizar)
             }
         })
@@ -184,29 +166,180 @@ class FirmaFragment : Fragment() {
         })
     }
 
-    private fun actualizarEstadoBotonesSegunFirma() {
-        // Si el testigo ya firmó (comprobamos por ruta de archivo)
-        if (!actaViewModel.firmaTestigoPath.isNullOrEmpty()) {
-            binding.btnFirmaTestigo.isEnabled = false
-            binding.btnFirmaTestigo.text = "✅ TESTIGO FIRMÓ"
-            binding.btnFirmaTestigo.setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9")) // Verde clarito
+    private fun generarBotonesDinamicos() {
+        binding.containerBotonesFirmas.removeAllViews()
+        val context = requireContext()
+
+        // 1. Botones para Testigos
+        if (!actaViewModel.Testigo1Nombre.isNullOrBlank()) {
+            agregarFilaFirma("Testigo: ${actaViewModel.Testigo1Nombre}", "TESTIGO_1", !actaViewModel.Testigo1FirmaPath.isNullOrEmpty())
+        }
+        if (!actaViewModel.Testigo2Nombre.isNullOrBlank()) {
+            agregarFilaFirma("Testigo: ${actaViewModel.Testigo2Nombre}", "TESTIGO_2", !actaViewModel.Testigo2FirmaPath.isNullOrEmpty())
         }
 
-        // Si el infractor ya firmó (o se negó)
-        if (!actaViewModel.firmaInfractorPath.isNullOrEmpty() || binding.checkSeNiegaAFirmar.isChecked) {
-            binding.btnFirmaInfractor.text = if (binding.checkSeNiegaAFirmar.isChecked) "NEGATIVA REGISTRADA" else "✅ INFRACTOR FIRMÓ"
+        // 2. Botones para Vinculados / Infractores
+        actaViewModel.listaInfractores.forEach { p ->
+            val rol = p.tipoVinculo ?: "Infractor"
+            val texto = "$rol: ${p.nombre}"
+            val clave = if (p.dni.isNotBlank()) p.dni.replace(".", "").replace("-", "").trim() else p.nombre.trim().lowercase()
+            agregarFilaFirma(texto, "VINCULO_$clave", !p.firmaPath.isNullOrEmpty())
+        }
+    }
+
+    private fun agregarFilaFirma(texto: String, tag: String, yaFirmado: Boolean) {
+        val layoutFila = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 16)
+        }
+
+        val btn = com.google.android.material.button.MaterialButton(requireContext(), null, com.google.android.material.R.style.Widget_Material3_Button_OutlinedButton).apply {
+            this.text = if (yaFirmado) "✅ $texto" else texto
+            this.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            this.textSize = 14f // Reducir un poco el tamaño para que quepa mejor con el check
+            this.setPadding(32, 40, 32, 40)
+            
+            if (yaFirmado) {
+                this.strokeColor = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#33BB66"))
+                this.strokeWidth = 3
+                setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9")) // Verde clarito si ya firmó
+                this.setTextColor(android.graphics.Color.parseColor("#33BB66"))
+            } else {
+                this.strokeColor = android.content.res.ColorStateList.valueOf(android.graphics.Color.LTGRAY)
+                this.strokeWidth = 2
+                setBackgroundColor(android.graphics.Color.WHITE)
+                this.setTextColor(android.graphics.Color.BLACK)
+            }
+            this.isAllCaps = false
+            
+            this.setOnClickListener {
+                procesarSeleccionFirma(tag)
+            }
+        }
+
+        layoutFila.addView(btn)
+
+        // Si ya está firmado, agregamos el botón de borrar
+        if (yaFirmado) {
+            val btnBorrar = android.widget.ImageButton(requireContext()).apply {
+                setImageResource(android.R.drawable.ic_menu_delete)
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setColorFilter(android.graphics.Color.RED)
+                setPadding(24, 24, 24, 24)
+                setOnClickListener {
+                    confirmarEliminarFirma(tag)
+                }
+            }
+            layoutFila.addView(btnBorrar)
+        }
+
+        binding.containerBotonesFirmas.addView(layoutFila)
+    }
+
+    private fun confirmarEliminarFirma(tag: String) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Eliminar Firma")
+            .setMessage("¿Desea borrar la firma registrada?")
+            .setPositiveButton("SÍ, BORRAR") { _, _ ->
+                eliminarFirmaDeViewModel(tag)
+                generarBotonesDinamicos()
+                Toast.makeText(context, "Firma eliminada", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("CANCELAR", null)
+            .show()
+    }
+
+    private fun eliminarFirmaDeViewModel(tag: String) {
+        when {
+            tag == "TESTIGO_1" -> {
+                borrarArchivoFisico(actaViewModel.Testigo1FirmaPath)
+                actaViewModel.Testigo1FirmaPath = null
+            }
+            tag == "TESTIGO_2" -> {
+                borrarArchivoFisico(actaViewModel.Testigo2FirmaPath)
+                actaViewModel.Testigo2FirmaPath = null
+            }
+            tag.startsWith("VINCULO_") -> {
+                val identificador = tag.replace("VINCULO_", "")
+                
+                // 1. Limpiar en el principal si coincide
+                val clavePrincipal = if (actaViewModel.dniInfractor.isNotBlank()) 
+                    actaViewModel.dniInfractor.replace(".", "").replace("-", "").trim() 
+                    else actaViewModel.ApellidoNombreInfractor.trim().lowercase()
+                
+                if (identificador == clavePrincipal) {
+                    borrarArchivoFisico(actaViewModel.firmaInfractorPath)
+                    actaViewModel.firmaInfractorPath = null
+                }
+                
+                // 2. Limpiar en el mapa de vinculados
+                actaViewModel.datosPersonasVinculadas.forEach { (_, p) ->
+                    val clavePv = if (p.dni.isNotBlank()) p.dni.replace(".", "").replace("-", "").trim() else p.nombre.trim().lowercase()
+                    if (clavePv == identificador) {
+                        borrarArchivoFisico(p.firmaPath)
+                        p.firmaPath = null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun borrarArchivoFisico(path: String?) {
+        if (path.isNullOrEmpty()) return
+        try {
+            val file = java.io.File(path)
+            if (file.exists()) {
+                val eliminado = file.delete()
+                android.util.Log.d("FIRMA_DELETE", "Archivo físico eliminado: $path -> $eliminado")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FIRMA_DELETE", "Error al borrar archivo físico: ${e.message}")
+        }
+    }
+
+    private fun procesarSeleccionFirma(tag: String) {
+        when {
+            tag.startsWith("TESTIGO_") -> {
+                esFirmaTestigo = true
+                testigoIndexActual = tag.replace("TESTIGO_", "").toInt()
+                personaActual = null
+                claveVinculoActual = tag
+
+                val nombre = if (testigoIndexActual == 1) actaViewModel.Testigo1Nombre else actaViewModel.Testigo2Nombre
+
+                if (!nombre.isNullOrBlank()) {
+                    prepararModoFirma(true)
+                }
+            }
+            tag.startsWith("VINCULO_") -> {
+                esFirmaTestigo = false
+                val identificador = tag.replace("VINCULO_", "")
+                claveVinculoActual = identificador
+                
+                // Buscamos en la lista procesada para tener el objeto visual
+                personaActual = actaViewModel.listaInfractores.find {
+                    val clave = if (it.dni.isNotBlank()) it.dni.replace(".", "").replace("-", "").trim() else it.nombre.trim().lowercase()
+                    clave == identificador
+                }
+                
+                testigoIndexActual = 0
+                prepararModoFirma(false)
+            }
         }
     }
 
     private fun prepararModoFirma(esTestigo: Boolean) {
-        // Si NO es testigo y marcó "Se niega", saltamos directo al guardado
-        if (!esTestigo && binding.checkSeNiegaAFirmar.isChecked) {
-            finalizarProceso()
-            return
+        val titulo = if (esTestigo) "FIRMA DE TESTIGO" else "FIRMA DE VÍNCULO"
+        val nombre = if (esTestigo) {
+            if (testigoIndexActual == 1) actaViewModel.Testigo1Nombre else actaViewModel.Testigo2Nombre
+        } else {
+            personaActual?.nombre ?: "Desconocido"
         }
-
-        val titulo = if (esTestigo) "FIRMA DE TESTIGO" else "FIRMA DE INFRACTOR"
-        val nombre = if (esTestigo) binding.etNombreTestigo.text.toString() else (actaViewModel.ApellidoNombreInfractor ?: "Infractor")
 
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val fechaHoy = sdf.format(Date())
@@ -221,65 +354,63 @@ class FirmaFragment : Fragment() {
         binding.layoutPreparacionFirma.visibility = View.GONE
         binding.layoutModoFirma.visibility = View.VISIBLE
         binding.signaturePad.clear()
-        habilitarBotonFinalizar(false) // Resetear el botón para la nueva firma
-    }
-
-
-
-    private fun habilitarBotonFinalizar(estado: Boolean) {
-        binding.btnFinalizarActa.isEnabled = estado
-        binding.btnFinalizarActa.alpha = if (estado) 1.0f else 0.5f
+        habilitarBotonFinalizar(false)
     }
 
     private fun finalizarProceso() {
-        val seNiega = binding.checkSeNiegaAFirmar.isChecked && !esFirmaTestigo
-
-        if (!seNiega && binding.signaturePad.isEmpty) {
+        if (binding.signaturePad.isEmpty) {
             Toast.makeText(context, "Falta la firma obligatoria", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // 1. Si firmó, guardamos el Bitmap como archivo PNG y obtenemos la ruta
-        if (!binding.signaturePad.isEmpty) {
-            val bitmapFirma = binding.signaturePad.transparentSignatureBitmap
-            val tipoFirma = if (esFirmaTestigo) "testigo" else "infractor"
-            val rutaGuardada = guardarFirmaEnDisco(bitmapFirma, tipoFirma)
+        // 1. Guardar firma física
+        val bitmapFirma = binding.signaturePad.transparentSignatureBitmap
+        val identificadorFirma = if (esFirmaTestigo) "testigo_$testigoIndexActual" else "vinculo_$claveVinculoActual"
+        val ruta = guardarFirmaEnDisco(bitmapFirma, identificadorFirma)
 
-            if (esFirmaTestigo) {
-                actaViewModel.firmaTestigoPath = rutaGuardada
-                actaViewModel.nombreTestigo = actaViewModel.Testigo1Nombre
-            } else {
-                actaViewModel.firmaInfractorPath = rutaGuardada
-            }
-        } else if (seNiega) {
-            actaViewModel.infractorSeNiegaAFirmar = true
-            actaViewModel.firmaInfractorPath = null
-        }
-
-        // 2. Lógica de transición de pantallas
+        // 2. Persistir en ViewModel (Borrando la anterior si existía para evitar huérfanos)
         if (esFirmaTestigo) {
-            // Limpiamos el Pad para que quede en blanco para el infractor
-            binding.signaturePad.clear()
-
-            // Volver a la pantalla de preparación
-            binding.layoutModoFirma.visibility = View.GONE
-            binding.layoutPreparacionFirma.visibility = View.VISIBLE
-
-            // Actualizar la interfaz (botón testigo en verde)
-            actualizarEstadoBotonesSegunFirma()
-
-            // Cambiar el selector al Infractor (esto dispara el listener y pone esFirmaTestigo = false)
-            binding.toggleGrupoFirmas.check(R.id.btnFirmaInfractor)
-
-            Toast.makeText(context, "Firma de testigo guardada. Turno del infractor.", Toast.LENGTH_SHORT).show()
-        } else {
-            // Cierre definitivo
-            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
-                mostrarDialogoEstadoInspeccion()
+            if (testigoIndexActual == 1) {
+                borrarArchivoFisico(actaViewModel.Testigo1FirmaPath)
+                actaViewModel.Testigo1FirmaPath = ruta
             } else {
-                guardarYEnviarAlServidor("PENDIENTE")
+                borrarArchivoFisico(actaViewModel.Testigo2FirmaPath)
+                actaViewModel.Testigo2FirmaPath = ruta
+            }
+        } else {
+            val claveAComparar = claveVinculoActual ?: ""
+
+            // Actualizar Infractor Principal si coincide
+            val clavePrincipal = if (actaViewModel.dniInfractor.isNotBlank()) 
+                actaViewModel.dniInfractor.replace(".", "").replace("-", "").trim() 
+                else actaViewModel.ApellidoNombreInfractor.trim().lowercase()
+
+            if (claveAComparar == clavePrincipal) {
+                borrarArchivoFisico(actaViewModel.firmaInfractorPath)
+                actaViewModel.firmaInfractorPath = ruta
+            }
+
+            // Actualizar en el mapa de vinculados (IMPORTANTE: Recorrer para actualizar el objeto real)
+            actaViewModel.datosPersonasVinculadas.forEach { (rol, p) ->
+                val clavePv = if (p.dni.isNotBlank()) p.dni.replace(".", "").replace("-", "").trim() else p.nombre.trim().lowercase()
+                if (clavePv == claveAComparar) {
+                    borrarArchivoFisico(p.firmaPath)
+                    p.firmaPath = ruta
+                }
             }
         }
+
+        // 2. Volver a la pantalla de selección
+        binding.layoutModoFirma.visibility = View.GONE
+        binding.layoutPreparacionFirma.visibility = View.VISIBLE
+        
+        generarBotonesDinamicos() // Refrescar estados de botones
+        Toast.makeText(context, "Firma guardada correctamente", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun habilitarBotonFinalizar(estado: Boolean) {
+        binding.btnFinalizarActa.isEnabled = estado
+        binding.btnFinalizarActa.alpha = if (estado) 1.0f else 0.5f
     }
 
     private fun mostrarDialogoEstadoInspeccion() {
@@ -449,8 +580,13 @@ class FirmaFragment : Fragment() {
                 var anioActa = calendar.get(Calendar.YEAR)
                 var secuenciaActa = 0
 
-                if (actaViewModel.idActaLocal == 0L) {
-                    // 🚀 Si es acta nueva, incrementamos la secuencia en Room
+                // Si ya tenemos una secuencia positiva en el ViewModel, la usamos (es un borrador con secuencia)
+                if (actaViewModel.secuenciaActual > 0) {
+                    serieActa = actaViewModel.serie.ifEmpty { "E" }
+                    anioActa = if (actaViewModel.anio > 0) actaViewModel.anio else calendar.get(Calendar.YEAR)
+                    secuenciaActa = actaViewModel.secuenciaActual
+                } else {
+                    // Si es 0 o menor, necesitamos generar una nueva sí o sí para evitar el error 23514 en el servidor
                     val secuenciaActualizada = obtenerYSumaSecuencia(
                         dao = db.puntoSecuenciaDao(),
                         androidId = androidIdLogueado,
@@ -458,16 +594,12 @@ class FirmaFragment : Fragment() {
                     )
                     serieActa = secuenciaActualizada.serie
                     anioActa = secuenciaActualizada.anio
-                    secuenciaActa = secuenciaActualizada.ultimaSecuencia // 👈 Secuencia corregida (ej: 1, 2, 3...)
+                    secuenciaActa = secuenciaActualizada.ultimaSecuencia
 
+                    // Actualizamos el ViewModel para que los DTOs que se generen después tengan la secuencia correcta
                     actaViewModel.secuenciaActual = secuenciaActa
                     actaViewModel.serie = serieActa
                     actaViewModel.anio = anioActa
-                } else {
-                    // Si se está editando un borrador local existente, mantenemos la secuencia ya asignada
-                    serieActa = actaViewModel.serie.ifEmpty { "E" }
-                    anioActa = if (actaViewModel.anio > 0) actaViewModel.anio else calendar.get(Calendar.YEAR)
-                    secuenciaActa = actaViewModel.secuenciaActual
                 }
 
                 // 🚀 Generar el número de acta con la secuencia actualizada y punto de emisión dinámico
@@ -504,6 +636,8 @@ class FirmaFragment : Fragment() {
                     idJuzgado = juzgadoAsignado,
                     idReparticion = idReparticionSeleccionada,
                     detalleFalta = observacionesFalta,
+                    observaciones = actaViewModel.observaciones.trim().ifEmpty { null }, // 🚀 Persistir observaciones
+                    procTipoInmueble = actaViewModel.procTipoInmueble.trim().ifEmpty { null }, // 🚀 Persistir tipo inmueble
                     serie = serieActa,
                     puntoEmisionId = puntoEmisionIdLogueado,
                     anio = anioActa,
@@ -513,26 +647,64 @@ class FirmaFragment : Fragment() {
                 val idLocal = db.actaDao().insertarCabecera(nuevaActa)
                 actaViewModel.idActaLocal = idLocal
 
-                // 2. Datos del Infractor
-                val infractor = ActaInfractorEntity(
-                    actaId = idLocal,
-                    nombreCompleto = actaViewModel.ApellidoNombreInfractor,
-                    dni = actaViewModel.dniInfractor,
-                    provincia = actaViewModel.provinciaInfractor,
-                    localidad = actaViewModel.localidadInfractor,
-                    cp = actaViewModel.cpInfractor,
-                    calle = actaViewModel.calleInfractor,
-                    altura = actaViewModel.alturaInfractor,
-                    niegaDatos = actaViewModel.niegaDatos,
-                    nroLicencia = actaViewModel.nroLicencia,
-                    vinculoLugar = actaViewModel.vinculoLugar,
-                    nombreResponsable = actaViewModel.nombreResponsable,
-                    dniResponsable = actaViewModel.dniResponsable,
-                    calleResponsable = actaViewModel.calleResponsable,
-                    alturaResponsable = actaViewModel.alturaResponsable,
-                    firmaPath = actaViewModel.firmaInfractorPath
-                )
-                db.actaDao().insertarInfractor(infractor)
+                // 🚀 LIMPIEZA PREVIA: Si estamos re-guardando un borrador, eliminamos datos viejos de tablas relacionadas
+                // para evitar duplicados por IDs autogenerados distintos.
+                db.actaDao().eliminarInfractoresPorActa(idLocal)
+                db.actaDao().eliminarFaltasPorActa(idLocal)
+                db.actaDao().eliminarVehiculoPorActa(idLocal)
+                db.actaDao().eliminarAlcoholemiaPorActa(idLocal)
+                db.actaDao().eliminarMedidasPreventivasPorActa(idLocal)
+                db.actaDao().eliminarBienesRetenidosPorActa(idLocal)
+                db.actaDao().eliminarSecuestrosPorActa(idLocal)
+                db.actaDao().eliminarTestigosPorActa(idLocal)
+                db.actaDao().eliminarProcedimientoPorActa(idLocal)
+                db.actaDao().eliminarComercioPorActa(idLocal)
+                db.actaDao().eliminarCatastroPorActa(idLocal)
+
+                // 2. Datos de los Infractores / Personas Vinculadas (UNIFICADO)
+                val listaInfractoresParaGuardar = mutableListOf<ActaInfractorEntity>()
+
+                if (actaViewModel.niegaDatos == 0) {
+                    // Usamos la lista priorizada y deduplicada del ViewModel
+                    actaViewModel.listaInfractores.forEach { p ->
+                        listaInfractoresParaGuardar.add(
+                            ActaInfractorEntity(
+                                actaId = idLocal,
+                                nombreCompleto = p.nombre,
+                                dni = p.dni,
+                                provincia = p.provincia,
+                                localidad = p.localidad,
+                                cp = p.cp,
+                                calle = p.calle,
+                                altura = p.altura,
+                                niegaDatos = 0,
+                                tieneLicencia = if (p.tieneLicencia) 1 else 0,
+                                nroLicencia = p.nroLicencia,
+                                vinculoLugar = p.tipoVinculo ?: "Infractor",
+                                firmaPath = p.firmaPath
+                            )
+                        )
+                    }
+                } else {
+                    // Caso: Niega datos (1), No se encuentra (2)
+                    listaInfractoresParaGuardar.add(
+                        ActaInfractorEntity(
+                            actaId = idLocal,
+                            nombreCompleto = "",
+                            dni = "",
+                            provincia = "BUENOS AIRES",
+                            localidad = "CHIVILCOY",
+                            cp = "6620",
+                            calle = "",
+                            altura = "",
+                            niegaDatos = if (actaViewModel.niegaDatos != -1) actaViewModel.niegaDatos else 1,
+                            vinculoLugar = if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) "INFRACTOR" else "DESCONOCIDO",
+                            motivoNiega = actaViewModel.motivoDatos.trim().ifEmpty { null }
+                        )
+                    )
+                }
+
+                db.actaDao().insertarInfractores(listaInfractoresParaGuardar)
 
                 // 3. Faltas Seleccionadas
 
@@ -574,60 +746,63 @@ class FirmaFragment : Fragment() {
                         if (actaViewModel.hacerTestAlcoholemia) {
                             val alcoholemia = ActaAlcoholemiaEntity(
                                 actaId = idLocal,
-                                resultadoAlcoholemia = actaViewModel.ftResultado,
-                                marcaAlcoholimetro = actaViewModel.alcoMarca ?: "Dräger",
-                                modeloAlcoholimetro = actaViewModel.alcoModelo ?: "Alcotest 7510",
-                                nroSerieAlcoholimetro = actaViewModel.alcoSerie ?: "S/N",
-                                codAprobacionAlcoholimetro = actaViewModel.alcoAprobacion ?: "S/C",
-                                alcoholimetroId = actaViewModel.alcoholimetroId ?: 0
+                                resultadoAlcoholemia = actaViewModel.ftResultado, // Puede ser 0.0 sin problema
+                                marcaAlcoholimetro = actaViewModel.alcoMarca.takeIf { !it.isNullOrBlank() } ?: "Sin Marca",
+                                modeloAlcoholimetro = actaViewModel.alcoModelo.takeIf { !it.isNullOrBlank() } ?: "S/M",
+                                nroSerieAlcoholimetro = actaViewModel.alcoSerie.takeIf { !it.isNullOrBlank() } ?: "S/N",
+                                codAprobacionAlcoholimetro = actaViewModel.alcoAprobacion.takeIf { !it.isNullOrBlank() } ?: "S/C",
+                                alcoholimetroId = actaViewModel.alcoholimetroId
                             )
                             db.actaDao().insertarAlcoholemia(alcoholemia)
                         }
 
+                        // 2. Guardar Medida Preventiva base
                         val medidasPreventivas = ActaMedidaPreventivaEntity(
                             actaId = idLocal,
                             realizoAlcoholemia = actaViewModel.hacerTestAlcoholemia ?: false,
-                            retencionVehiculo = actaViewModel.retencionVehiculo ?: false,
-                            retencionLicencia = actaViewModel.retencionLicencia ?: false,
-                            retencionAnimal = actaViewModel.retencionAnimal ?: false
+                            retencionVehiculo = actaViewModel.retencionVehiculo,
+                            retencionLicencia = actaViewModel.retencionLicencia
                         )
                         db.actaDao().insertarMedidasPreventivas(medidasPreventivas)
 
-                        if (actaViewModel.retencionVehiculo == true || actaViewModel.inventarioDinamico.isNotEmpty()) {
-                            /*val stringInventario = serializarInventario(actaViewModel.inventarioDinamico)
-                            val detalleSecuestro = ActaSecuestroEntity(
+                        // 3. Guardar dinámicamente los Bienes Retenidos seleccionados
+                        val bienesAInsertar = actaViewModel.bienesSeleccionadosIds.map { bienId ->
+                            ActaBienRetenidoEntity(
                                 actaId = idLocal,
-                                opcionesLista = stringInventario
+                                tipoBienId = bienId,
+                                observacion = actaViewModel.bienesDescripciones[bienId] // 🚀 Asigna la observación cargada
                             )
-                            db.actaDao().insertarSecuestro(detalleSecuestro)*/
-                            val listaChecklist = actaViewModel.inventarioDinamico.map { (codigo, valor) ->
-                                ActaSecuestroEntity(
-                                    actaId = idLocal,
-                                    codigoClave = codigo,
-                                    valor = valor
-                                )
-                            }
-                            db.actaDao().insertarSecuestro(listaChecklist)
                         }
+
+                        if (bienesAInsertar.isNotEmpty()) {
+                            db.actaDao().insertarBienesRetenidos(bienesAInsertar)
+                        }
+
+                        // 4. Guardar inventario de secuestro dinámico
+                        val listaSecuestro = actaViewModel.inventarioDinamico.map { (clave, valor) ->
+                            ActaSecuestroEntity(
+                                actaId = idLocal,
+                                codigoClave = clave,
+                                valor = valor
+                            )
+                        }
+                        if (listaSecuestro.isNotEmpty()) {
+                            db.actaDao().insertarSecuestro(listaSecuestro)
+                        }
+                        
                     }
 
                     TipoFormulario.INSPECCION -> {
                         // -------------------------------------------------------------
                         // CIRCUITO INSPECCIÓN: Procedimiento, Comercio, Catastro
                         // -------------------------------------------------------------
-                        val inmueblesSerializados = if (actaViewModel.categoriasSeleccionadas.isNotEmpty()) {
-                            actaViewModel.categoriasSeleccionadas.joinToString(separator = ", ")
-                        } else {
-                            "No especificado"
-                        }
 
                         // 1. Procedimiento
                         val procedimiento = ActaProcedimientoEntity(
                             actaId = idLocal,
                             tipoInspeccion = actaViewModel.procAccion ?: "Inspección Gral",
-                            tipoInmueble = inmueblesSerializados,
                             nroReferenciaActa = actaViewModel.procRefActa,
-                            seProcedeA = actaViewModel.procSeProcedeA ?: ""
+                            seProcedeA = ""
                         )
                         db.actaDao().insertarProcedimiento(procedimiento)
 
@@ -649,7 +824,7 @@ class FirmaFragment : Fragment() {
                         val ctCirc = actaViewModel.catCirc?.trim() ?: ""
                         val ctSecc = actaViewModel.catSeccion?.trim() ?: ""
 
-                        if (ctCirc.isNotEmpty() || ctSecc.isNotEmpty()) {
+                        if (ctCirc.isNotEmpty() || ctSecc.isNotEmpty() || actaViewModel.catPartidaMunicipal.isNotBlank()) {
                             val datosCatastro = ActaCatastroEntity(
                                 actaId = idLocal,
                                 ctCirc = actaViewModel.catCirc,
@@ -665,7 +840,8 @@ class FirmaFragment : Fragment() {
                                 ctParcNro = actaViewModel.catParcelaNro,
                                 ctParcLet = actaViewModel.catParcelaLet,
                                 ctSubParc = actaViewModel.catSubparcela,
-                                ctUf = actaViewModel.catUF
+                                ctUf = actaViewModel.catUF,
+                                partidaMunicipal = actaViewModel.catPartidaMunicipal
                             )
                             db.actaDao().insertarCatastro(datosCatastro)
                         }
@@ -687,10 +863,10 @@ class FirmaFragment : Fragment() {
                             dniOriginal = dniT1,
                             nombreOriginal = nombreT1,
                             provinciaOriginal = actaViewModel.Testigo1Provincia.trim(),
-                            domicilioOriginal = actaViewModel.Testigo1Domicilio?.trim() ?: "",
-                            localidadOriginal = actaViewModel.Testigo1Localidad?.trim() ?: "",
-                            cpOriginal = actaViewModel.Testigo1Cp?.trim() ?: "",
-                            firmaPath = actaViewModel.firmaTestigoPath
+                            domicilioOriginal = "${actaViewModel.Testigo1Calle} ${actaViewModel.Testigo1CalleNro}".trim(),
+                            localidadOriginal = actaViewModel.Testigo1Localidad.trim(),
+                            cpOriginal = actaViewModel.Testigo1Cp.trim(),
+                            firmaPath = actaViewModel.Testigo1FirmaPath
                         )
                     )
                 }
@@ -705,10 +881,10 @@ class FirmaFragment : Fragment() {
                             dniOriginal = dniT2,
                             nombreOriginal = nombreT2,
                             provinciaOriginal = actaViewModel.Testigo2Provincia.trim(),
-                            domicilioOriginal = actaViewModel.Testigo2Domicilio?.trim() ?: "",
-                            localidadOriginal = actaViewModel.Testigo2Localidad?.trim() ?: "",
-                            cpOriginal = actaViewModel.Testigo2Cp?.trim() ?: "",
-                            firmaPath = actaViewModel.firmaTestigoPath
+                            domicilioOriginal = "${actaViewModel.Testigo2Calle} ${actaViewModel.Testigo2CalleNro}".trim(),
+                            localidadOriginal = actaViewModel.Testigo2Localidad.trim(),
+                            cpOriginal = actaViewModel.Testigo2Cp.trim(),
+                            firmaPath = actaViewModel.Testigo2FirmaPath
                         )
                     )
                 }

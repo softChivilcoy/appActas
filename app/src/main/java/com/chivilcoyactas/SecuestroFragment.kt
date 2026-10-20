@@ -7,8 +7,11 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -17,6 +20,7 @@ import androidx.navigation.fragment.findNavController
 import com.chivilcoyactas.databinding.FragmentSecuestroBinding
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -39,7 +43,22 @@ class SecuestroFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Reinicio de scroll al entrar
+        binding.scrollSecuestro.post {
+            binding.scrollSecuestro.scrollTo(0, 0)
+        }
+
         (activity as? MainActivity)?.actualizarProgreso(6)
+
+        // Aplicar padding dinámico según el teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollSecuestro) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val density = resources.displayMetrics.density
+            val extraPadding = (32 * density).toInt()
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, imeHeight + extraPadding)
+            insets
+        }
 
         binding.tvTituloSecuestro.text = "📋 ACTA DE SECUESTRO: INVENTARIO"
 
@@ -158,6 +177,8 @@ class SecuestroFragment : Fragment() {
                     ).apply {
                         setMargins(0, 8, 0, 16)
                     }
+                    isFocusable = true
+                    isFocusableInTouchMode = true
                 }
 
                 val tvTitulo = TextView(requireContext()).apply {
@@ -211,6 +232,10 @@ class SecuestroFragment : Fragment() {
                         } else if (index == 0) { // Por defecto el primero (ej: Bueno)
                             isChecked = true
                         }
+
+                        setOnClickListener {
+                            ejecutarAutoScroll(itemLayout)
+                        }
                     }
                     radioGroup.addView(radioButton)
                 }
@@ -240,11 +265,14 @@ class SecuestroFragment : Fragment() {
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ).apply { setMargins(0, 4, 0, 8) }
                     isChecked = valorPrevio == "S" || valorPrevio == "true"
+                    setOnCheckedChangeListener { _, _ ->
+                        ejecutarAutoScroll(this)
+                    }
                 }
             }
 
             "INTEGER", "NUMBER" -> {
-                LinearLayout(requireContext()).apply {
+                val itemLayout = LinearLayout(requireContext()).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     layoutParams = LinearLayout.LayoutParams(
@@ -264,11 +292,32 @@ class SecuestroFragment : Fragment() {
                         setText(valorPrevio ?: "")
                         textSize = 14f
                         layoutParams = LinearLayout.LayoutParams(180, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        setSelectAllOnFocus(true)
+                        isSingleLine = true
+                        imeOptions = EditorInfo.IME_ACTION_DONE
+
+                        setOnFocusChangeListener { v, hasFocus ->
+                            if (hasFocus) {
+                                ejecutarAutoScroll(v)
+                                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+                            } else {
+                                v.setBackgroundResource(0)
+                            }
+                        }
+
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                                (activity as? MainActivity)?.hideKeyboard()
+                                clearFocus()
+                                true
+                            } else false
+                        }
                     }
 
                     addView(tvLabel)
                     addView(etInput)
                 }
+                itemLayout
             }
 
             else -> { // TEXT LIBRE
@@ -280,9 +329,45 @@ class SecuestroFragment : Fragment() {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ).apply { setMargins(0, 4, 0, 8) }
+                    setSelectAllOnFocus(true)
+                    isSingleLine = true
+                    imeOptions = EditorInfo.IME_ACTION_DONE
+
+                    setOnFocusChangeListener { v, hasFocus ->
+                        if (hasFocus) {
+                            ejecutarAutoScroll(v)
+                            v.setBackgroundResource(R.drawable.bg_edittext_focused)
+                        } else {
+                            v.setBackgroundResource(0)
+                        }
+                    }
+
+                    setOnEditorActionListener { _, actionId, _ ->
+                        if (actionId == EditorInfo.IME_ACTION_DONE) {
+                            (activity as? MainActivity)?.hideKeyboard()
+                            clearFocus()
+                            true
+                        } else false
+                    }
                 }
             }
         }
+    }
+
+    private fun ejecutarAutoScroll(view: View) {
+        binding.scrollSecuestro.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = android.graphics.Rect()
+            view.getDrawingRect(rect)
+            binding.scrollSecuestro.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollSecuestro.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
     }
 
     private fun guardarInventarioDinamico() {

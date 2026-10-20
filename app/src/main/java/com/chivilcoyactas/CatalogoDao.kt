@@ -46,6 +46,9 @@ interface CatalogoDao {
     @Query("DELETE FROM tipo_vehiculo_checklist")
     suspend fun vaciarTipoVehicularCheck()
 
+    @Query("DELETE FROM tipo_roles_involucrado")
+    suspend fun vaciarTipoRolesInvolucrado()
+
     // --- 2. MÉTODOS DE INSERCIÓN MASIVA ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -84,6 +87,9 @@ interface CatalogoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) // 👈 AGREGADO
     suspend fun insertarTipoVehicularCheck(lista: List<TipoVehiculoCheckEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarTipoRolesInvolucrado(lista: List<TipoRolInvolucradoEntity>)
+
     // --- 3. TRANSACCIÓN MAESTRA QUE VA A LLAMAR EL WORKER ---
     @Transaction
     suspend fun actualizarCatalogoCompleto(
@@ -98,7 +104,8 @@ interface CatalogoDao {
         quincenas: List<QuincenaEntity>,
         categorias: List<CategoriaEntity>,
         checkvehicular: List<CheckVehicularEntity>,
-        tipovehicularcheck: List<TipoVehiculoCheckEntity>
+        tipovehicularcheck: List<TipoVehiculoCheckEntity>,
+        tipoRoles: List<TipoRolInvolucradoEntity>
 
     ) {
         // Vaciamos todo primero
@@ -114,6 +121,7 @@ interface CatalogoDao {
         vaciarCategorias()
         vaciarCheckVehicular()
         vaciarTipoVehicularCheck()
+        vaciarTipoRolesInvolucrado()
 
         // Insertamos el catálogo nuevo que bajó de Laravel
         insertarAlcoholimetros(alcoholimetros)
@@ -128,6 +136,7 @@ interface CatalogoDao {
         insertarCategorias(categorias)
         insertarCheckVehicular(checkvehicular)
         insertarTipoVehicularCheck(tipovehicularcheck)
+        insertarTipoRolesInvolucrado(tipoRoles)
     }
 
     // --- 4. CONSULTAS DE LECTURA PARA LA UI ---
@@ -155,12 +164,15 @@ interface CatalogoDao {
     @Query("SELECT * FROM local_tipo_localidades WHERE provinciaid = :provinciaId ORDER BY nombre ASC")
     suspend fun obtenerLocalidadesPorProvincia(provinciaId: Int): List<TipoLocalidadEntity>
 
+    @Query("SELECT * FROM local_tipos_actas")
+    suspend fun obtenerTodosLosTiposActa(): List<TipoActaEntity>
+
     // 🕵️‍♂️ Corregido: SQLite no lleva el "INT" ahí. Busca directo en el rango.
     @Query("SELECT idJuzgado FROM configuracion_quincenas WHERE :dia BETWEEN diaInicio AND diaFin LIMIT 1")
     suspend fun obtenerJuzgadoPorDia(dia: Int): Int?
 
     // --- 4. CONSULTAS DE LECTURA ---
-    @Query("SELECT * FROM categorias_inspeccion ORDER BY nombre ASC") // 👈 AGREGADO
+    @Query("SELECT * FROM categorias_inspeccion") // 👈 AGREGADO
     suspend fun obtenerTodasLasCategorias(): List<CategoriaEntity>
 
     @Query("SELECT * FROM param_checklist_vehicular ORDER BY ordenUi ASC")
@@ -182,4 +194,18 @@ interface CatalogoDao {
     // Método Fallback
     @Query("SELECT * FROM param_checklist_vehicular ORDER BY ordenUi ASC")
     suspend fun obtenerTodosLosChecklist(): List<CheckVehicularEntity>
+
+    @Query("SELECT * FROM tipo_roles_involucrado")
+    suspend fun obtenerTodosLosRolesInvolucrado(): List<TipoRolInvolucradoEntity>
+
+    // --- 5. EJIDO URBANO (POLÍGONO) ---
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun guardarEjidoUrbano(ejido: EjidoUrbanoEntity)
+
+    @Query("SELECT * FROM ejido_urbano WHERE id = 1 LIMIT 1")
+    suspend fun obtenerEjidoUrbano(): EjidoUrbanoEntity?
+
+    @Query("SELECT updatedAt FROM ejido_urbano WHERE id = 1 LIMIT 1")
+    suspend fun obtenerUltimaFechaEjido(): String?
 }

@@ -31,12 +31,14 @@ data class ActaCatastroEntity(
     val ctParcNro: String?,
     val ctParcLet: String?,
     val ctSubParc: String?,
-    val ctUf: String?
+    val ctUf: String?,
+    val partidaMunicipal: String? = null
 ){
     fun esVacio(): Boolean {
         return ctCirc.isNullOrBlank() &&
                 ctSecc.isNullOrBlank() &&
                 ctChaqNro.isNullOrBlank() &&
+                ctChaqLet.isNullOrBlank() &&
                 ctQuinNro.isNullOrBlank() &&
                 ctQuinLet.isNullOrBlank() &&
                 ctFracNro.isNullOrBlank() &&
@@ -46,6 +48,7 @@ data class ActaCatastroEntity(
                 ctParcNro.isNullOrBlank() &&
                 ctParcLet.isNullOrBlank() &&
                 ctSubParc.isNullOrBlank() &&
-                ctUf.isNullOrBlank()
+                ctUf.isNullOrBlank() &&
+                partidaMunicipal.isNullOrBlank()
     }
 }

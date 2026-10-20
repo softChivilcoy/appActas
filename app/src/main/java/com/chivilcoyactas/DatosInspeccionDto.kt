@@ -4,7 +4,6 @@ import com.google.gson.annotations.SerializedName
 
 data class DatosInspeccionDto(
     @SerializedName("tipo_inspeccion") val tipoInspeccion: String,
-    @SerializedName("tipo_inmueble") val tipoInmueble: String, // Las categorías unidas por coma
     @SerializedName("nro_referencia_acta") val nroReferenciaActa: String?,
     @SerializedName("se_procede_a") val seProcedeA: String,
     @SerializedName("comercio") val comercio: ComercioDto?,
@@ -31,5 +30,6 @@ data class CatastroDto(
     @SerializedName("parc_nro") val parcNro: String?,
     @SerializedName("parc_let") val parcLet: String?,
     @SerializedName("sub_parc") val subParc: String?,
-    @SerializedName("uf") val uf: String?
+    @SerializedName("uf") val uf: String?,
+    @SerializedName("partida_municipal") val partidaMunicipal: String?
 )

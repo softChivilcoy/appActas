@@ -163,8 +163,14 @@ class HojaRutaFragment : Fragment() {
                     // --- 1. CABECERA Y UBICACIÓN ---
                     actaViewModel.idActaLocal = cabecera.idLocal
                     actaViewModel.esNuevaActa = false
-                    actaViewModel.calle = cabecera.nombreCalle ?: ""
-                    actaViewModel.altura = cabecera.alturaCalle
+                    actaViewModel.secuenciaActual = cabecera.secuencia
+                    actaViewModel.serie = cabecera.serie
+                    actaViewModel.anio = cabecera.anio
+                    actaViewModel.puntoEmisionId = cabecera.puntoEmisionId
+
+                    actaViewModel.tipoFormulario = if (actaCompleta.vehiculo != null) TipoFormulario.TRANSITO else TipoFormulario.INSPECCION
+                    actaViewModel.calle = cabecera.nombreCalle
+                    actaViewModel.altura = cabecera.alturaCalle ?:0
                     actaViewModel.latitud = cabecera.latitud
                     actaViewModel.longitud = cabecera.longitud
                     actaViewModel.ejidoUrbano = cabecera.ejidoUrbano
@@ -172,40 +178,88 @@ class HojaRutaFragment : Fragment() {
                     actaViewModel.ubReferencia = cabecera.detalleReferencia ?: ""
                     actaViewModel.ubTieneDetalleAdicional = !cabecera.detallePiso.isNullOrBlank() || !cabecera.detalleReferencia.isNullOrBlank()
 
-                    // --- 2. INFRACTOR ---
-                    actaCompleta.infractor?.let { inf ->
-                        actaViewModel.ApellidoNombreInfractor = inf.nombreCompleto ?: ""
-                        actaViewModel.dniInfractor = inf.dni ?: ""
-                        actaViewModel.provinciaInfractor = inf.provincia ?: "BUENOS AIRES"
-                        actaViewModel.localidadInfractor = inf.localidad ?: "CHIVILCOY"
-                        actaViewModel.cpInfractor = inf.cp ?: "6620"
-                        actaViewModel.calleInfractor = inf.calle ?: ""
-                        actaViewModel.alturaInfractor = inf.altura ?: ""
-                        actaViewModel.niegaDatos = inf.niegaDatos // Se asigna como Int (0, 1 o 2)
-                        actaViewModel.vinculoLugar = inf.vinculoLugar ?: ""
+                    // --- 2. INFRACTORES / PERSONAS VINCULADAS ---
+                    actaViewModel.datosPersonasVinculadas.clear()
+                    actaViewModel.vinculoLugar = ""
+                    actaViewModel.niegaDatos = -1
+                    actaViewModel.motivoDatos = ""
+
+                    if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+                        // En Inspección, restauramos el mapa de personas vinculadas
+                        val vinculos = mutableListOf<String>()
+                        actaCompleta.infractores.forEach { inf ->
+                            actaViewModel.niegaDatos = inf.niegaDatos
+                            
+                            if (inf.niegaDatos == 0) {
+                                val persona = PersonaVinculada(
+                                    nombre = inf.nombreCompleto,
+                                    dni = inf.dni,
+                                    provincia = inf.provincia,
+                                    localidad = inf.localidad,
+                                    cp = inf.cp,
+                                    calle = inf.calle,
+                                    altura = inf.altura,
+                                    tieneLicencia = inf.tieneLicencia == 1,
+                                    nroLicencia = inf.nroLicencia ?: "",
+                                    tipoVinculo = inf.vinculoLugar,
+                                    firmaPath = inf.firmaPath
+                                )
+                                inf.vinculoLugar?.let { rol ->
+                                    actaViewModel.datosPersonasVinculadas[rol] = persona
+                                    vinculos.add(rol)
+                                    // Mantenemos firmaInfractorPath para compatibilidad con el primer infractor si es necesario
+                                    if (inf.firmaPath != null && actaViewModel.firmaInfractorPath == null) {
+                                        actaViewModel.firmaInfractorPath = inf.firmaPath
+                                    }
+                                }
+                            } else {
+                                // Mapeo de motivoDatos para Inspección si fuera necesario
+                                if (inf.motivoNiega != null && actaViewModel.motivoDatos.isEmpty()) {
+                                    actaViewModel.motivoDatos = inf.motivoNiega
+                                }
+                            }
+                        }
+                        actaViewModel.vinculoLugar = vinculos.joinToString(", ")
+                    } else {
+                        // En Tránsito, restauramos el infractor único
+                        actaCompleta.infractores.firstOrNull()?.let { inf ->
+                            actaViewModel.ApellidoNombreInfractor = inf.nombreCompleto
+                            actaViewModel.dniInfractor = inf.dni
+                            actaViewModel.provinciaInfractor = inf.provincia
+                            actaViewModel.localidadInfractor = inf.localidad
+                            actaViewModel.cpInfractor = inf.cp
+                            actaViewModel.calleInfractor = inf.calle
+                            actaViewModel.alturaInfractor = inf.altura
+                            actaViewModel.niegaDatos = inf.niegaDatos
+                            actaViewModel.tieneLicencia = inf.tieneLicencia == 1
+                            actaViewModel.nroLicencia = inf.nroLicencia ?: ""
+                            actaViewModel.firmaInfractorPath = inf.firmaPath
+                            actaViewModel.motivoDatos = inf.motivoNiega ?: ""
+                        }
                     }
 
                     // --- 3. PROCEDIMIENTO / TIPO DE INSPECCIÓN ---
                     actaViewModel.categoriasSeleccionadas.clear()
 
-                    actaCompleta.procedimiento?.let { proc ->
-                        actaViewModel.procAccion = proc.tipoInspeccion ?: ""
-                        actaViewModel.procRefActa = proc.nroReferenciaActa ?: ""
-                        actaViewModel.procSeProcedeA = proc.seProcedeA ?: ""
-
-                        // 🚀 LEER LA CATEGORÍA REAL DESDE tipoInmueble
-                        if (!proc.tipoInmueble.isNullOrBlank()) {
+                    // 🚀 LEER LA CATEGORÍA REAL DESDE LA CABECERA (procTipoInmueble)
+                    cabecera.procTipoInmueble?.let { categorias ->
+                        if (categorias.isNotBlank()) {
                             // Soporta una sola categoría o varias separadas por coma
-                            val listaCategoriasBD = proc.tipoInmueble.split(",").map { it.trim() }
+                            val listaCategoriasBD = categorias.split(",").map { it.trim() }
                             actaViewModel.categoriasSeleccionadas.addAll(listaCategoriasBD)
                         }
                     }
 
+                    actaCompleta.procedimiento?.let { proc ->
+                        actaViewModel.procAccion = proc.tipoInspeccion
+                        actaViewModel.procRefActa = proc.nroReferenciaActa ?: ""
+                    }
+
                     // --- 4. COMERCIO ---
                     actaCompleta.comercio?.let { com ->
-                        actaViewModel.comNombreFantasia = com.nombreComercio ?: ""
+                        actaViewModel.comNombreFantasia = com.nombreComercio
                         actaViewModel.comHabNumero = com.nroHabilitacionMunicipal ?: ""
-                        actaViewModel.comRubro = com.rubroComercio ?: ""
+                        actaViewModel.comRubro = com.rubroComercio
                     }
 
                     // --- 5. CATASTRO ---
@@ -224,6 +278,7 @@ class HojaRutaFragment : Fragment() {
                         actaViewModel.catParcelaLet = cat.ctParcLet ?: ""
                         actaViewModel.catSubparcela = cat.ctSubParc ?: ""
                         actaViewModel.catUF = cat.ctUf ?: ""
+                        actaViewModel.catPartidaMunicipal = cat.partidaMunicipal ?: ""
                     }
 
                     // --- RESTAURAR CATEGORÍAS SELECCIONADAS ---
@@ -253,38 +308,42 @@ class HojaRutaFragment : Fragment() {
                     actaViewModel.listaFaltasSeleccionadas.clear()
                     actaCompleta.faltas.forEach { faltaEntity ->
                         val infraccion = Infraccion(
-                            id = faltaEntity.id.toInt(), // O 0 si la entidad autogenera el id
+                            id = faltaEntity.id.toInt(),
                             codigo = faltaEntity.codigoFalta,
                             nombre = faltaEntity.descripcion
                         )
                         actaViewModel.listaFaltasSeleccionadas.add(infraccion)
                     }
-                    actaViewModel.ftObservaciones = actaCompleta.faltas.firstOrNull()?.observaciones ?: ""
+                    // Recuperar observaciones de la cabecera (detalleFalta)
+                    actaViewModel.ftObservaciones = cabecera.detalleFalta ?: ""
 
                     // --- 7. TESTIGOS ---
                     // Limpiamos los datos previos en el ViewModel para evitar arrastrar basura
                     actaViewModel.Testigo1Dni = ""
                     actaViewModel.Testigo1Nombre = ""
-                    actaViewModel.Testigo1Provincia = ""
-                    actaViewModel.Testigo1Domicilio = ""
-                    actaViewModel.Testigo1Localidad = ""
+                    actaViewModel.Testigo1Provincia = "BUENOS AIRES"
+                    actaViewModel.Testigo1Calle = ""
+                    actaViewModel.Testigo1Localidad = "CHIVILCOY"
                     actaViewModel.Testigo1Cp = ""
+                    actaViewModel.Testigo1FirmaPath = null
 
                     actaViewModel.Testigo2Dni = ""
                     actaViewModel.Testigo2Nombre = ""
-                    actaViewModel.Testigo2Provincia = ""
-                    actaViewModel.Testigo2Domicilio = ""
-                    actaViewModel.Testigo2Localidad = ""
+                    actaViewModel.Testigo2Provincia = "BUENOS AIRES"
+                    actaViewModel.Testigo2Calle = ""
+                    actaViewModel.Testigo2Localidad = "CHIVILCOY"
                     actaViewModel.Testigo2Cp = ""
+                    actaViewModel.Testigo2FirmaPath = null
 
                     // Asignamos el primer testigo si existe en la BD
                     actaCompleta.testigos.getOrNull(0)?.let { t1 ->
                         actaViewModel.Testigo1Dni = t1.dniOriginal
                         actaViewModel.Testigo1Nombre = t1.nombreOriginal
                         actaViewModel.Testigo1Provincia = t1.provinciaOriginal
-                        actaViewModel.Testigo1Domicilio = t1.domicilioOriginal
+                        actaViewModel.Testigo1Calle = t1.domicilioOriginal
                         actaViewModel.Testigo1Localidad = t1.localidadOriginal
                         actaViewModel.Testigo1Cp = t1.cpOriginal
+                        actaViewModel.Testigo1FirmaPath = t1.firmaPath
                     }
 
                     // Asignamos el segundo testigo si existe en la BD
@@ -292,12 +351,47 @@ class HojaRutaFragment : Fragment() {
                         actaViewModel.Testigo2Dni = t2.dniOriginal
                         actaViewModel.Testigo2Nombre = t2.nombreOriginal
                         actaViewModel.Testigo2Provincia = t2.provinciaOriginal
-                        actaViewModel.Testigo2Domicilio = t2.domicilioOriginal
+                        actaViewModel.Testigo2Calle = t2.domicilioOriginal
                         actaViewModel.Testigo2Localidad = t2.localidadOriginal
                         actaViewModel.Testigo2Cp = t2.cpOriginal
+                        actaViewModel.Testigo2FirmaPath = t2.firmaPath
                     }
 
-                    // --- 8. FOTOS / MEDIA ---
+                    // --- 8. VEHÍCULO / ALCOHOLEMIA / BIENES (Solo Tránsito) ---
+                    if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) {
+                        actaCompleta.vehiculo?.let { v ->
+                            actaViewModel.dominio = v.dominio
+                            actaViewModel.tipoVehiculo = v.tipoVehiculo
+                            actaViewModel.idTipoVehiculoSeleccionado = v.idTipoVehiculo
+                            actaViewModel.marca = v.marca
+                            actaViewModel.idMarcaSeleccionada = v.idMarca
+                            actaViewModel.modelo = v.modelo
+                            actaViewModel.idModeloSeleccionado = v.idModelo
+                        }
+
+                        actaCompleta.alcoholemia?.let { a ->
+                            actaViewModel.hacerTestAlcoholemia = true
+                            actaViewModel.ftResultado = a.resultadoAlcoholemia
+                            actaViewModel.alcoMarca = a.marcaAlcoholimetro
+                            actaViewModel.alcoModelo = a.modeloAlcoholimetro
+                            actaViewModel.alcoSerie = a.nroSerieAlcoholimetro
+                            actaViewModel.alcoAprobacion = a.codAprobacionAlcoholimetro
+                            actaViewModel.alcoholimetroId = a.alcoholimetroId
+                        }
+
+                        actaViewModel.bienesSeleccionadosIds.clear()
+                        actaViewModel.bienesDescripciones.clear()
+                        actaCompleta.bienesRetenidos.forEach { bien ->
+                            actaViewModel.bienesSeleccionadosIds.add(bien.tipoBienId)
+                            bien.observacion?.let { obs ->
+                                actaViewModel.bienesDescripciones[bien.tipoBienId] = obs
+                            }
+                        }
+                    }
+
+                    // --- 9. FOTOS / MEDIA / OBSERVACIONES ---
+                    actaViewModel.observaciones = cabecera.observaciones ?: ""
+
                     val fotosRecuperadas = mutableListOf<Bitmap>()
 
                     actaCompleta.media.forEach { mediaEntity ->

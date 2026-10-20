@@ -13,7 +13,7 @@
         android:gravity="center_horizontal"
         android:padding="32dp">
 
-        <Space android:layout_width="match_parent" android:layout_height="50dp" />
+        <Space android:layout_width="match_parent" android:layout_height="20dp" />
 
         <ImageView
             android:layout_width="120dp"
@@ -30,32 +30,41 @@
             android:textColor="#333333"
             android:layout_marginBottom="32dp"/>
 
+        <!-- Legajo Inspector -->
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Legajo del Inspector"
             android:layout_marginBottom="16dp">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etLoginDni"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="number"
-                android:imeOptions="actionNext"/>
+                android:imeOptions="actionNext"
+                android:singleLine="true"
+                android:selectAllOnFocus="true"/>
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Contraseña con Toggle de visibilidad -->
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Contraseña"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="24dp"
+            app:passwordToggleEnabled="true">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etLoginPass"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
-                android:imeOptions="actionDone" />
+                android:imeOptions="actionDone"
+                android:singleLine="true"
+                android:selectAllOnFocus="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <Button
@@ -63,11 +72,14 @@
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="INGRESAR"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
             android:backgroundTint="#33BB66" />
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="300dp" />
+            android:layout_height="100dp" />
 
     </LinearLayout>
 </ScrollView>

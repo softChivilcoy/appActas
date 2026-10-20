@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
+    android:paddingBottom="16dp"
+    android:clipToPadding="false"
     android:fillViewport="true"
     android:isScrollContainer="true">
 
@@ -19,7 +21,7 @@
             android:text="👥 TESTIGOS DEL HECHO"
             android:textColor="#33BB66"
             android:textStyle="bold"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:layout_marginBottom="8dp"/>
 
         <TextView
@@ -80,6 +82,7 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="8dp"/>
 
+                <!-- DNI y APELLIDO Y NOMBRE -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -91,6 +94,7 @@
                         android:layout_weight="1"
                         android:hint="DNI"
                         android:layout_marginEnd="4dp">
+
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etTestigo1Dni"
                             android:layout_width="match_parent"
@@ -110,48 +114,42 @@
                             android:id="@+id/etTestigo1Nombre"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapWords"
+                            android:inputType="textCapWords|textNoSuggestions|textVisiblePassword"
                             android:imeOptions="actionNext"
                             android:singleLine="true"/>
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Provincia"
-                    android:layout_marginTop="8dp">
-                    <AutoCompleteTextView
-                        android:id="@+id/autoCompleteTestigo1Provincia"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:completionThreshold="1"
-                        android:dropDownHeight="220dp"
-                        android:inputType="none"
-                        android:text="BUENOS AIRES" />
-                </com.google.android.material.textfield.TextInputLayout>
-
+                <!-- 1. CALLE Y NRO (PRIORIDAD DE CARGA) -->
                 <LinearLayout
+                    android:id="@+id/layoutCamposDomicilio"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
+                    android:weightSum="3"
+                    android:layout_marginBottom="12dp">
+
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilCalle"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="2"
-                        android:hint="Localidad"
-                        android:layout_marginEnd="4dp">
-                        <AutoCompleteTextView
-                            android:id="@+id/autoCompleteTestigo1Localidad"
+                        android:hint="Calle"
+                        android:layout_marginEnd="6dp">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/etTestigo1Calle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:completionThreshold="1"
                             android:dropDownHeight="220dp"
-                            android:inputType="text"
-                            android:text="CHIVILCOY" />
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:imeOptions="actionNext"
+                            android:nextFocusDown="@id/etTestigo1CalleNro"
+                            android:singleLine="true"
+                            android:selectAllOnFocus="true"/>
+
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -159,39 +157,135 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:hint="CP">
+                        android:hint="Nro">
+
                         <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etTestigo1Cp"
+                            android:id="@+id/etTestigo1CalleNro"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="number"
                             android:imeOptions="actionNext"
                             android:singleLine="true"
-                            android:text="6620"/>
+                            android:selectAllOnFocus="true" />
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                <!-- 2. UBICACIÓN SECUNDARIA (PREDETERMINADA) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardUbicacionTestigo1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Domicilio (Calle y Número)"
-                    android:layout_marginTop="8dp">
+                    style="@style/Widget.Material3.CardView.Outlined"
+                    android:clickable="true"
+                    android:focusable="true">
 
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/etTestigo1Domicilio"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:imeOptions="actionNext"
-                        android:completionThreshold="1"
-                        android:dropDownHeight="220dp"
-                        android:inputType="textCapWords"
-                        android:singleLine="true" />
+                        android:orientation="horizontal"
+                        android:padding="12dp"
+                        android:gravity="center_vertical">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_dialog_map"
+                            android:contentDescription="Ubicación"
+                            android:layout_marginEnd="8dp"/>
+
+                        <TextView
+                            android:id="@+id/tvUbicacionResumenT1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="CHIVILCOY, BUENOS AIRES (CP 6620)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?android:attr/textColorSecondary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cambiar"
+                            android:textSize="12sp"
+                            android:textColor="?attr/colorPrimary"/>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 3. DESPLEGABLE OCULTO (Solo visible si toca "Cambiar") -->
+                <LinearLayout
+                    android:id="@+id/containerUbicacionExtraTestigo1"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
+
+                    <!-- Provincia -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Provincia"
+                        android:layout_marginBottom="8dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/autoCompleteTestigo1Provincia"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:text="BUENOS AIRES"
+                            android:singleLine="true" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Localidad y CP -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="3">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="2"
+                            android:hint="Localidad"
+                            android:layout_marginEnd="8dp">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/autoCompleteTestigo1Localidad"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                                android:text="CHIVILCOY"
+                                android:singleLine="true" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="C.P.">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etTestigo1Cp"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number"
+                                android:text="6620"
+                                android:singleLine="true"
+                                android:imeOptions="actionDone"
+                                android:selectAllOnFocus="true"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- TESTIGO 2 -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardTestigo2"
             android:layout_width="match_parent"
@@ -245,48 +339,43 @@
                             android:id="@+id/etTestigo2Nombre"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textCapWords"
+                            android:inputType="textCapWords|textNoSuggestions|textVisiblePassword"
                             android:imeOptions="actionNext"
                             android:singleLine="true"/>
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Provincia"
-                    android:layout_marginTop="8dp">
-                    <AutoCompleteTextView
-                        android:id="@+id/autoCompleteTestigo2Provincia"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="none"
-                        android:completionThreshold="1"
-                        android:dropDownHeight="220dp"
-                        android:text="BUENOS AIRES" />
-                </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- 1. CALLE Y NRO (PRIORIDAD DE CARGA) -->
                 <LinearLayout
+                    android:id="@+id/layoutCamposDomicilioT2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
+                    android:weightSum="3"
+                    android:layout_marginBottom="12dp">
+
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilCalleT2"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="2"
-                        android:hint="Localidad"
-                        android:layout_marginEnd="4dp">
-                        <AutoCompleteTextView
-                            android:id="@+id/autoCompleteTestigo2Localidad"
+                        android:hint="Calle"
+                        android:layout_marginEnd="6dp">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/etTestigo2Calle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:completionThreshold="1"
                             android:dropDownHeight="220dp"
-                            android:inputType="text"
-                            android:text="CHIVILCOY" />
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:imeOptions="actionNext"
+                            android:nextFocusDown="@id/etTestigo2CalleNro"
+                            android:singleLine="true"
+                            android:selectAllOnFocus="true"/>
+
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -294,36 +383,131 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:hint="CP">
+                        android:hint="Nro">
+
                         <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etTestigo2Cp"
+                            android:id="@+id/etTestigo2CalleNro"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="number"
-                            android:imeOptions="actionDone"
+                            android:imeOptions="actionNext"
                             android:singleLine="true"
-                            android:text="6620"/>
+                            android:selectAllOnFocus="true" />
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                <!-- 2. UBICACIÓN SECUNDARIA (PREDETERMINADA) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardUbicacionTestigo2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Domicilio (Calle y Número)"
-                    android:layout_marginTop="8dp">
+                    style="@style/Widget.Material3.CardView.Outlined"
+                    android:clickable="true"
+                    android:focusable="true">
 
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/etTestigo2Domicilio"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:imeOptions="actionNext"
-                        android:completionThreshold="1"
-                        android:dropDownHeight="220dp"
-                        android:inputType="textCapWords"
-                        android:singleLine="true" />
+                        android:orientation="horizontal"
+                        android:padding="12dp"
+                        android:gravity="center_vertical">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_dialog_map"
+                            android:contentDescription="Ubicación"
+                            android:layout_marginEnd="8dp"/>
+
+                        <TextView
+                            android:id="@+id/tvUbicacionResumenT2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="CHIVILCOY, BUENOS AIRES (CP 6620)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?android:attr/textColorSecondary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cambiar"
+                            android:textSize="12sp"
+                            android:textColor="?attr/colorPrimary"/>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 3. DESPLEGABLE OCULTO (Solo visible si toca "Cambiar") -->
+                <LinearLayout
+                    android:id="@+id/containerUbicacionExtraTestigo2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
+
+                    <!-- Provincia -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Provincia"
+                        android:layout_marginBottom="8dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/autoCompleteTestigo2Provincia"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:text="BUENOS AIRES"
+                            android:singleLine="true" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Localidad y CP -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="3">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="2"
+                            android:hint="Localidad"
+                            android:layout_marginEnd="8dp">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/autoCompleteTestigo2Localidad"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                                android:text="CHIVILCOY"
+                                android:singleLine="true" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="C.P.">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etTestigo2Cp"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number"
+                                android:text="6620"
+                                android:singleLine="true"
+                                android:imeOptions="actionDone"
+                                android:selectAllOnFocus="true"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -339,6 +523,8 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:text="VOLVER"
+                app:icon="@drawable/ic_arrow_back_thin"
+                app:iconGravity="textStart"
                 android:layout_marginEnd="8dp"/>
             <Button
                 android:id="@+id/btnSiguienteTestigos"
@@ -351,6 +537,6 @@
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="300dp" />
+            android:layout_height="250dp" />
     </LinearLayout>
 </ScrollView>

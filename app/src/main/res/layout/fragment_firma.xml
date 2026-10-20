@@ -25,82 +25,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Revise los datos antes de pasar al modo firma."
-            android:textSize="14sp"
+            android:textSize="18sp"
             android:layout_marginBottom="16dp"/>
 
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="¿Quién va a firmar?"
+            android:text="Seleccione quién va a firmar:"
             android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
+            android:textSize="18sp"
+            android:textColor="#33BB66"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="12dp"/>
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/toggleGrupoFirmas"
+        <!-- Contenedor para botones dinámicos con opción de borrado -->
+        <LinearLayout
+            android:id="@+id/containerBotonesFirmas"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:singleSelection="true"
             android:orientation="vertical"
-            app:checkedButton="@+id/btnFirmaTestigo"
             android:layout_marginBottom="16dp">
-
-            <Button
-                android:id="@+id/btnFirmaTestigo"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="1. FIRMA DE TESTIGO" />
-
-            <Button
-                android:id="@+id/btnFirmaInfractor"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="2. FIRMA DE INFRACTOR"/>
-
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
-        <!--<com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/toggleGrupoFirmas"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:singleSelection="true"
-            app:checkedButton="@+id/btnFirmaInfractor"
-            android:layout_marginBottom="16dp">
-
-            <Button
-                android:id="@+id/btnFirmaInfractor"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="INFRACTOR" />
-            <Button
-                android:id="@+id/btnFirmaTestigo"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="TESTIGO" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>-->
-
-        <!-- Campo opcional para el nombre del testigo si no estaba cargado -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/inputNombreTestigo"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Nombre del Testigo"
-            android:visibility="visible"
-            android:enabled="false"
-            android:layout_marginBottom="16dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etNombreTestigo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textCapWords"/>
-        </com.google.android.material.textfield.TextInputLayout>
+            <!-- Se poblará dinámicamente desde el Fragment -->
+        </LinearLayout>
 
         <CheckBox
             android:id="@+id/checkSeNiegaAFirmar"
@@ -113,10 +60,14 @@
         <Button
             android:id="@+id/btnIrAFirmar"
             android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:text="ENTREGAR PARA FIRMAR"
-            android:backgroundTint="#007BFF"
-            app:icon="@drawable/ic_signature" />
+            android:layout_height="60dp"
+            android:text="SIGUIENTE"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="#33BB66"
+            android:textColor="@android:color/white"
+            app:icon="@drawable/ic_signature"
+            app:iconTint="@android:color/white" />
         <!-- ic_signature sería un icono de una lapicera -->
 
     </LinearLayout>
@@ -134,10 +85,11 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="RESUMEN DE INFRACCIÓN"
+            android:text="📝 RESUMEN DE INFRACCIÓN"
             android:textStyle="bold"
+            android:textSize="18sp"
             android:gravity="center"
-            android:textColor="#000000"/>
+            android:textColor="#33BB66"/>
 
         <!-- Mini Resumen para validez legal -->
         <com.google.android.material.card.MaterialCardView
@@ -164,11 +116,23 @@
             android:textStyle="italic"
             android:layout_marginBottom="8dp"/>
 
+        <Button
+            android:id="@+id/btnVolverDeFirma"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VOLVER"
+            app:icon="@drawable/ic_arrow_back_thin"
+            app:iconGravity="textStart"
+            android:layout_gravity="start"
+            android:layout_marginBottom="4dp"/>
+
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:strokeColor="#33BB66"
-            app:strokeWidth="2dp">
+            app:strokeColor="#000000"
+            app:strokeWidth="2dp"
+            app:cardBackgroundColor="#FFFFFF">
 
             <com.github.gcacace.signaturepad.views.SignaturePad
                 android:id="@+id/signaturePad"
@@ -200,6 +164,7 @@
                 android:enabled="false"
                 android:visibility="gone"
                 android:backgroundTint="#33BB66"
+                android:textColor="@android:color/white"
                 android:layout_marginTop="16dp"/>
         </LinearLayout>
 

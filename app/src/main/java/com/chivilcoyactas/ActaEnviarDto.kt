@@ -9,6 +9,7 @@ data class FotoDto(
 data class ActaEnviarDto(
     @SerializedName("cabecera") val cabecera: CabeceraDto,
     @SerializedName("infractor") val infractor: InfractorDto?,
+    @SerializedName("personas_vinculadas") val personasVinculadas: List<InfractorDto> = emptyList(),
     @SerializedName("faltas") val faltas: List<FaltaDto>,
     @SerializedName("testigos") val testigos: List<TestigoDto>,
     @SerializedName("datos_transito") val datosTransito: DatosTransitoDto?,

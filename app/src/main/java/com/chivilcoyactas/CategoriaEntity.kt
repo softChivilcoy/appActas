@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "categorias_inspeccion")
 data class CategoriaEntity(
-    val nombre: String,           // Primero el que siempre vas a mandar
+    val nombre: String,
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0
 )

@@ -1,5 +1,6 @@
 package com.chivilcoyactas
 
+import android.content.Context
 import android.os.Bundle
 import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
@@ -122,5 +123,12 @@ class MainActivity : AppCompatActivity() {
         currentFocus?.let {
             inputMethodManager.hideSoftInputFromWindow(it.windowToken, 0)
         }
+    }
+
+    fun mostrarTeclado(view: View) {
+        view.postDelayed({
+            val inputMethodManager = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            inputMethodManager.showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }, 100)
     }
 }

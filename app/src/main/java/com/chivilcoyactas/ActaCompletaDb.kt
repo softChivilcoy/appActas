@@ -3,6 +3,7 @@ package com.chivilcoyactas.db
 import androidx.room.Embedded
 import androidx.room.Relation
 import com.chivilcoyactas.ActaAlcoholemiaEntity
+import com.chivilcoyactas.ActaBienRetenidoEntity
 import com.chivilcoyactas.ActaCatastroEntity
 import com.chivilcoyactas.ActaComercioEntity
 import com.chivilcoyactas.ActaEntity
@@ -19,7 +20,7 @@ data class ActaCompletaDb(
     @Embedded val cabecera: ActaEntity,
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
-    val infractor: ActaInfractorEntity?,
+    val infractores: List<ActaInfractorEntity>,
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
     val faltas: List<ActaFaltasEntity>,
@@ -32,6 +33,10 @@ data class ActaCompletaDb(
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
     val medidasPreventivas: ActaMedidaPreventivaEntity?,
+
+    // 🚀 AGREGADO: Bienes retenidos dinámicos
+    @Relation(parentColumn = "idLocal", entityColumn = "actaId")
+    val bienesRetenidos: List<ActaBienRetenidoEntity> = emptyList(),
 
     @Relation(parentColumn = "idLocal", entityColumn = "actaId")
     val secuestro: List<ActaSecuestroEntity>,

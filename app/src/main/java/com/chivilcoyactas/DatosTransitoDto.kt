@@ -2,12 +2,18 @@ package com.chivilcoyactas.net
 
 import com.google.gson.annotations.SerializedName
 
+
+data class BienRetenidoDto(
+    @SerializedName("tipo_bien_id") val tipoBienId: Int,
+    @SerializedName("observacion") val observacion: String?
+)
 data class DatosTransitoDto(
     @SerializedName("vehiculo") val vehiculo: VehiculoDto?,
     @SerializedName("retencion_licencia") val retencionLicencia: Boolean,
     @SerializedName("retencion_vehiculo") val retencionVehiculo: Boolean,
     @SerializedName("alcoholemia") val alcoholemia: AlcoholemiaDto?,
-    @SerializedName("secuestro") val secuestro: SecuestroDto? // 👈 Agregado
+    @SerializedName("secuestro") val secuestro: SecuestroDto?,
+    @SerializedName("bienes_retenidos") val bienesRetenidos: List<BienRetenidoDto> = emptyList()
 )
 data class VehiculoDto(
     @SerializedName("dominio_patente") val dominioPatente: String,
@@ -23,7 +29,7 @@ data class AlcoholemiaDto(
     @SerializedName("modelo_alcoholimetro") val modeloAlcoholimetro: String,
     @SerializedName("nro_serie_alcoholimetro") val nroSerieAlcoholimetro: String,
     @SerializedName("cod_aprobacion_alcoholimetro") val codAprobacionAlcoholimetro: String,
-    @SerializedName("alcoholimetro_id") val alcoholimetroId: Int
+    @SerializedName("alcoholimetro_id") val alcoholimetroId: Int? = null
 )
 
 data class SecuestroDto(

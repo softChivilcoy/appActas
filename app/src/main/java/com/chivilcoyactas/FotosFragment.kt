@@ -3,7 +3,10 @@ package com.chivilcoyactas
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +19,12 @@ import androidx.navigation.fragment.findNavController
 import android.widget.GridLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.chivilcoyactas.databinding.FragmentFotosBinding
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.getValue
 
@@ -26,21 +34,19 @@ class FotosFragment : Fragment() {
     private var _binding: FragmentFotosBinding? = null
     private val binding get() = _binding!!
 
-    private var uriFotoActual: android.net.Uri? = null
+    private var uriFotoActual: Uri? = null
 
-    // 1. Lanzador para la CÁMARA (Guarda directamente en el ViewModel)
+    // 1. Lanzador para la CÁMARA
     private val tomarFotoLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && uriFotoActual != null) {
-            // Pasamos la URI del archivo real al ViewModel para que lo procese
             actaViewModel.agregarFotoDesdeUri(requireContext(), uriFotoActual!!)
         }
     }
 
-    // 2. Lanzador para GALERÍA
-    private val seleccionarFotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            // TIP: Aquí podrías implementar una lógica para convertir URI a Bitmap e insertar en ViewModel
-            Toast.makeText(context, "Imagen seleccionada de galería", Toast.LENGTH_SHORT).show()
+    // 2. Lanzador para GALERÍA (🚀 Procesa e inserta la imagen de la galería)
+    private val seleccionarFotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            actaViewModel.agregarFotoDesdeUri(requireContext(), it)
         }
     }
 
@@ -52,22 +58,33 @@ class FotosFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Forzar scroll al inicio al entrar o volver
+        binding.scrollFotos.post {
+            binding.scrollFotos.scrollTo(0, 0)
+        }
+
+        // Aplicar padding dinámico según el teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollFotos) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val density = resources.displayMetrics.density
+            val extraPadding = (32 * density).toInt()
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, imeHeight + extraPadding)
+            insets
+        }
+
         // Ajustar el progreso en el MainActivity
         val paso = if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) 6 else 8
         (activity as? MainActivity)?.actualizarProgreso(paso)
 
-        // --- INICIALIZACIÓN DE DATOS ---
-
         // Recuperar observaciones si ya existen
         binding.etObservaciones.setText(actaViewModel.observaciones)
 
-        // Observar la lista de fotos del ViewModel (Motor de la grilla)
+        // Observar la lista de fotos del ViewModel
         actaViewModel.listaFotos.observe(viewLifecycleOwner) { fotos ->
             dibujarFotos(fotos)
         }
 
-        // --- LISTENERS DE BOTONES ---
-
+        // LISTENERS DE BOTONES
         binding.btnCamara.setOnClickListener {
             val permisoCaja = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA)
 
@@ -82,6 +99,28 @@ class FotosFragment : Fragment() {
             seleccionarFotoLauncher.launch("image/*")
         }
 
+        binding.inputObservaciones.setEndIconOnClickListener {
+            val textoLimpio = binding.etObservaciones.text.toString().trimEnd()
+            binding.etObservaciones.setText(textoLimpio)
+
+            binding.etObservaciones.clearFocus()
+            binding.contenedorPrincipal.requestFocus()
+            (activity as? MainActivity)?.hideKeyboard()
+
+            binding.scrollFotos.post {
+                binding.scrollFotos.smoothScrollTo(0, 0)
+            }
+        }
+
+        binding.etObservaciones.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(binding.inputObservaciones)
+                view.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                view.setBackgroundResource(0)
+            }
+        }
+
         binding.btnVolverFotos.setOnClickListener {
             actaViewModel.observaciones = binding.etObservaciones.text.toString()
             findNavController().navigateUp()
@@ -92,53 +131,60 @@ class FotosFragment : Fragment() {
             findNavController().navigate(R.id.action_fotos_to_firma)
         }
 
-        // Ocultar teclado al tocar la grilla de fotos
         binding.gridFotos.setOnTouchListener { _, _ ->
             (activity as? MainActivity)?.hideKeyboard()
             false
         }
 
-        // Ocultar teclado al tocar fuera de los campos
         binding.scrollFotos.setOnTouchListener { _, _ ->
             (activity as? MainActivity)?.hideKeyboard()
             false
         }
     }
 
-    // Función auxiliar para crear el archivo temporal que usará la cámara
+    private fun ejecutarAutoScroll(view: View) {
+        binding.scrollFotos.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = android.graphics.Rect()
+            view.getDrawingRect(rect)
+            binding.scrollFotos.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollFotos.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
+    }
+
     private fun abrirCamaraConArchivoReal() {
         try {
-            // Creamos un archivo vacío en la caché temporal
-            val archivoTemporal =
-                File(requireContext().cacheDir, "camara_temp_${System.currentTimeMillis()}.jpg")
+            val archivoTemporal = File(requireContext().cacheDir, "camara_temp_${System.currentTimeMillis()}.jpg")
 
-            // Lo convertimos a una URI segura usando tu FileProvider (revisá que coincida el "authority")
             uriFotoActual = FileProvider.getUriForFile(
                 requireContext(),
                 "${requireContext().packageName}.fileprovider",
                 archivoTemporal
             )
 
-            // Lanzamos la cámara pasándole el archivo físico listo para ser llenado con megapíxeles reales
             tomarFotoLauncher.launch(uriFotoActual)
         } catch (e: Exception) {
             Toast.makeText(context, "Error al preparar la cámara: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Lanzador para solicitar el permiso de la cámara
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            // 🚀 SOLUCIÓN: Si dio el permiso, llamamos a la función que prepara el archivo y lanza la cámara
             abrirCamaraConArchivoReal()
         } else {
             Toast.makeText(requireContext(), "El permiso de la cámara es necesario para adjuntar evidencias fotográficas.", Toast.LENGTH_LONG).show()
         }
     }
 
-    // --- LÓGICA DE INTERFAZ ---
+    // --- INTERFAZ & GRILLA DE FOTOS ---
 
     private fun dibujarFotos(fotos: List<Bitmap>) {
         binding.gridFotos.removeAllViews()
@@ -147,50 +193,68 @@ class FotosFragment : Fragment() {
         binding.tvSinFotos.visibility = if (fotos.isEmpty()) View.VISIBLE else View.GONE
 
         fotos.forEachIndexed { index, bitmap ->
-            val frame = crearFrameFoto(bitmap, index)
-            binding.gridFotos.addView(frame)
+            val card = crearFrameFoto(bitmap, index)
+            binding.gridFotos.addView(card)
         }
     }
 
-    private fun crearFrameFoto(bitmap: Bitmap, index: Int): FrameLayout {
-        val frame = FrameLayout(requireContext()).apply {
+    private fun crearFrameFoto(bitmap: Bitmap, index: Int): com.google.android.material.card.MaterialCardView {
+        val density = resources.displayMetrics.density
+        val marginPx = (4 * density).toInt()
+        val btnSizePx = (32 * density).toInt()
+
+        // 1. Contenedor CardView con esquinas redondeadas
+        val card = com.google.android.material.card.MaterialCardView(requireContext()).apply {
+            radius = 12 * density
+            strokeWidth = (1 * density).toInt()
+            strokeColor = Color.LTGRAY
             layoutParams = GridLayout.LayoutParams().apply {
                 width = 0
-                height = 300 // Un poco más grande para mejor visualización
+                height = (100 * density).toInt()
                 columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                setMargins(10, 10, 10, 10)
+                setMargins(marginPx, marginPx, marginPx, marginPx)
             }
         }
 
+        val frameLayout = FrameLayout(requireContext()).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        // 2. Imagen recortada prolija
         val img = ImageView(requireContext()).apply {
             layoutParams = FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
             scaleType = ImageView.ScaleType.CENTER_CROP
             setImageBitmap(bitmap)
         }
 
+        // 3. Botón flotante para eliminar
         val btnDel = ImageButton(requireContext()).apply {
-            layoutParams = FrameLayout.LayoutParams(75, 75).apply {
-                gravity = android.view.Gravity.TOP or android.view.Gravity.END
+            layoutParams = FrameLayout.LayoutParams(btnSizePx, btnSizePx).apply {
+                gravity = Gravity.TOP or Gravity.END
+                setMargins(0, (4 * density).toInt(), (4 * density).toInt(), 0)
             }
             setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            // Fondo rojo semi-transparente para que se vea la X
-            setBackgroundColor(android.graphics.Color.parseColor("#88FF0000"))
+            setBackgroundColor(Color.parseColor("#CCFF0000")) // Rojo visible
             setOnClickListener {
                 actaViewModel.eliminarFoto(index)
             }
         }
 
-        frame.addView(img)
-        frame.addView(btnDel)
-        return frame
+        frameLayout.addView(img)
+        frameLayout.addView(btnDel)
+        card.addView(frameLayout)
+
+        return card
     }
 
     override fun onPause() {
         super.onPause()
-        // Resguardo de seguridad: guardar texto al salir
         actaViewModel.observaciones = binding.etObservaciones.text.toString()
     }
 

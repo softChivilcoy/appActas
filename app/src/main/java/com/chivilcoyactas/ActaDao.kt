@@ -15,6 +15,9 @@ interface ActaDao {
     suspend fun insertarInfractor(infractor: ActaInfractorEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarInfractores(infractores: List<ActaInfractorEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarFaltas(faltas: List<ActaFaltasEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -25,6 +28,9 @@ interface ActaDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarMedidasPreventivas(medidas: ActaMedidaPreventivaEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarBienesRetenidos(bienes: List<ActaBienRetenidoEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarSecuestro(secuestro: List<ActaSecuestroEntity>)
@@ -65,6 +71,9 @@ interface ActaDao {
     @Query("SELECT * FROM actas WHERE estadoEnvio = :estado")
     suspend fun obtenerActasPorEstado(estado: String): List<ActaEntity>
 
+    @Query("SELECT tipoBienId FROM acta_bienes_retenidos WHERE actaId = :actaId")
+    suspend fun obtenerBienesPorActa(actaId: Long): List<Int>
+
     // --- ACTUALIZACIONES ---
 
     @Query("UPDATE actas SET estadoEnvio = :nuevoEstado, idServer = :idServer WHERE idLocal = :idLocal")
@@ -72,14 +81,44 @@ interface ActaDao {
 
     // --- ELIMINACIÓN ---
 
-    @Query("DELETE FROM actas WHERE idLocal = :idLocal")
-    suspend fun eliminarActaLocalCompleta(idLocal: Long)
+    @Query("DELETE FROM acta_infractor WHERE actaId = :actaId")
+    suspend fun eliminarInfractoresPorActa(actaId: Long)
 
-    @Delete
-    suspend fun eliminarActa(acta: ActaEntity)
+    @Query("DELETE FROM acta_faltas WHERE actaId = :actaId")
+    suspend fun eliminarFaltasPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_vehiculo WHERE actaId = :actaId")
+    suspend fun eliminarVehiculoPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_alcoholemia WHERE actaId = :actaId")
+    suspend fun eliminarAlcoholemiaPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_medidas_preventivas WHERE actaId = :actaId")
+    suspend fun eliminarMedidasPreventivasPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_bienes_retenidos WHERE actaId = :actaId")
+    suspend fun eliminarBienesRetenidosPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_secuestros WHERE actaId = :actaId")
+    suspend fun eliminarSecuestrosPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_testigos WHERE actaId = :actaId")
+    suspend fun eliminarTestigosPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_procedimiento WHERE actaId = :actaId")
+    suspend fun eliminarProcedimientoPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_comercio WHERE actaId = :actaId")
+    suspend fun eliminarComercioPorActa(actaId: Long)
+
+    @Query("DELETE FROM acta_catastro WHERE actaId = :actaId")
+    suspend fun eliminarCatastroPorActa(actaId: Long)
 
     @Query("DELETE FROM acta_media WHERE actaId = :actaId")
     suspend fun eliminarMediaPorActaId(actaId: Long)
+
+    @Query("DELETE FROM actas WHERE idLocal = :idLocal")
+    suspend fun eliminarActaLocalCompleta(idLocal: Long)
 
     // 🚀 Transacción para guardar/actualizar la sección de inspección completa
     @Transaction

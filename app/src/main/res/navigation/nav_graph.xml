@@ -99,6 +99,8 @@
         android:name="com.chivilcoyactas.FaltasFragment"
         android:label="Faltas"
         tools:layout="@layout/fragment_faltas">
+
+        <!-- AVANZAR: De Faltas a Infractor -->
         <action
             android:id="@+id/action_faltas_to_infractor"
             app:destination="@id/step3_infractor"
@@ -107,14 +109,7 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
 
-        <!-- NUEVA: Acción de vuelta al Infractor (Inspección) -->
-        <action
-            android:id="@+id/action_faltas_to_infractor_VUELTA"
-            app:destination="@id/step3_infractor"
-            app:enterAnim="@anim/slide_in_left"
-            app:exitAnim="@anim/slide_out_right" />
-
-        <!-- Opción B: Para Inspección -->
+        <!-- AVANZAR OPCIONAL: De Faltas a Testigos (Inspección) -->
         <action
             android:id="@+id/action_faltas_to_testigos"
             app:destination="@id/step7_testigos"
@@ -122,6 +117,23 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+
+        <!-- VOLVER: De Faltas a Ubicación (Paso 1) -->
+        <action
+            android:id="@+id/action_faltas_to_ubicacion"
+            app:destination="@id/step1_ubicacion"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right"
+            app:popUpTo="@id/step1_ubicacion"
+            app:popUpToInclusive="true" />
+
+        <!-- VOLVER: Acción de vuelta al Infractor (Inspección) -->
+        <action
+            android:id="@+id/action_faltas_to_infractor_VUELTA"
+            app:destination="@id/step3_infractor"
+            app:enterAnim="@anim/slide_in_left"
+            app:exitAnim="@anim/slide_out_right" />
+
     </fragment>
 
     <!--  PASO 2: INSPECCION _ PROCEDIMIENTO   -->

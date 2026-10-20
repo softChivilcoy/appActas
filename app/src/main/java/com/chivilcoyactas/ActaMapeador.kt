@@ -45,27 +45,34 @@ object ActaMapeador {
             idJuzgado = acta.idJuzgado,
             idReparticion = acta.idReparticion,
             detalleFalta = acta.detalleFalta,
+            observaciones = acta.observaciones, // 🚀 Mapeado
+            tipoInmueble = acta.procTipoInmueble, // 🚀 Mapeado (Categorías unidas por coma)
             serie = acta.serie,
             puntoEmisionId = acta.puntoEmisionId,
             anio = acta.anio,
             secuencia = acta.secuencia,
         )
 
-        // 2. Mapeamos el Infractor (Agregados: provincia, localidad, cp)
-        val infractorDto = dbData.infractor?.let {
+        // 2. Mapeamos los Infractores / Personas Vinculadas
+        val todosLosInfractores = dbData.infractores.map {
             InfractorDto(
                 nombreCompleto = it.nombreCompleto,
                 dni = it.dni,
-                provincia = it.provincia,   // 🚀 AGREGADO
-                localidad = it.localidad,   // 🚀 AGREGADO
-                cp = it.cp,                 // 🚀 AGREGADO
+                provincia = it.provincia,
+                localidad = it.localidad,
+                cp = it.cp,
                 calle = it.calle,
                 altura = it.altura,
                 niegaDatos = it.niegaDatos,
                 vinculoLugar = it.vinculoLugar,
-                firmaPath = it.firmaPath
+                nroLicencia = it.nroLicencia, // 🚀 AGREGADO
+                firmaPath = it.firmaPath,
+                motivoNiega = it.motivoNiega
             )
         }
+
+        // El primer infractor (o el único en Tránsito) se envía en el campo 'infractor' para compatibilidad
+        val infractorPrincipal = todosLosInfractores.firstOrNull()
 
         // 3. Mapeamos las Faltas
         val faltasDto = dbData.faltas.map {
@@ -87,16 +94,17 @@ object ActaMapeador {
 
         // 5. Rama Condicional: TRANSITO
         // Comparamos el enum de la UI o consultamos si existen datos de vehículo
-        val esTransito = dbData.vehiculo != null || dbData.alcoholemia != null
+        val esTransito = dbData.vehiculo != null || dbData.alcoholemia != null || dbData.bienesRetenidos.isNotEmpty()
 
         val datosTransitoDto = if (esTransito) {
 
             val vehiculoDto = dbData.vehiculo?.let {
                 VehiculoDto(
                     dominioPatente = it.dominio,
-                    marca = it.marca,
-                    modelo = it.modelo,
-                    tipoVehiculo = it.tipoVehiculo
+                    // 🚀 Enviamos el ID como string si existe, para que Laravel lo resuelva con is_numeric
+                    marca = it.idMarca?.toString() ?: it.marca,
+                    modelo = it.idModelo?.toString() ?: it.modelo,
+                    tipoVehiculo = it.idTipoVehiculo?.toString() ?: it.tipoVehiculo
                 )
             }
 
@@ -119,7 +127,21 @@ object ActaMapeador {
                 )
             }
 
-            // 2. Si hay ítems o hay retención de vehículo, creamos el DTO de secuestro
+            // 2. Mapeamos la lista de bienes retenidos a sus IDs correspondientes
+            val listaBienesDto = dbData.bienesRetenidos.map { bien ->
+                BienRetenidoDto(
+                    tipoBienId = bien.tipoBienId,
+                    observacion = bien.observacion
+                )
+            }.toMutableList()
+
+            // 🚀 INYECCIÓN AUTOMÁTICA: Si hay retención de vehículo y no está en la lista, 
+            // lo agregamos con ID 1 para que Laravel active la lógica de secuestro vehicular.
+            if (dbData.medidasPreventivas?.retencionVehiculo == true && listaBienesDto.none { it.tipoBienId == 1 }) {
+                listaBienesDto.add(BienRetenidoDto(tipoBienId = 1, observacion = "Vehículo retenido por acta"))
+            }
+
+            // 3. Si hay ítems o hay retención de vehículo, creamos el DTO de secuestro
             val secuestroDto = if (itemsChecklist.isNotEmpty() || dbData.medidasPreventivas?.retencionVehiculo == true) {
                 SecuestroDto(items = itemsChecklist)
             } else null
@@ -129,7 +151,8 @@ object ActaMapeador {
                 retencionLicencia = dbData.medidasPreventivas?.retencionLicencia ?: false,
                 retencionVehiculo = dbData.medidasPreventivas?.retencionVehiculo ?: false,
                 alcoholemia = alcoholemiaDto,
-                secuestro = secuestroDto
+                secuestro = secuestroDto,
+                bienesRetenidos = listaBienesDto
             )
 
             //secuestroInventario = dbData.secuestro?.inventarioSerializado,
@@ -154,14 +177,14 @@ object ActaMapeador {
                         circ = cat.ctCirc, secc = cat.ctSecc, chNro = cat.ctChaqNro, chLet = cat.ctChaqLet,
                         quinNro = cat.ctQuinNro, quinLet = cat.ctQuinLet, fracNro = cat.ctFracNro, fracLetra = cat.ctFracLetra,
                         mzNro = cat.ctMzNro, mzLet = cat.ctMzLet, parcNro = cat.ctParcNro, parcLet = cat.ctParcLet,
-                        subParc = cat.ctSubParc, uf = cat.ctUf
+                        subParc = cat.ctSubParc, uf = cat.ctUf,
+                        partidaMunicipal = cat.partidaMunicipal
                     )
                 }
 
                 DatosInspeccionDto(
                     tipoInspeccion = proc.tipoInspeccion,
-                    tipoInmueble = proc.tipoInmueble,
-                    nroReferenciaActa = proc.nroReferenciaActa,
+                    nroReferenciaActa = proc.nroReferenciaActa?.takeIf { it.isNotBlank() },
                     seProcedeA = proc.seProcedeA,
                     comercio = comercioDto,
                     catastro = catastroDto
@@ -170,24 +193,24 @@ object ActaMapeador {
         } else null
 
         // 7. 📸 Mapeamos las Fotos leyendo el archivo físico y pasándolo a Base64
-        /*val fotosDto = dbData.media.map { mediaEntity ->
+        val fotosDto = dbData.media.map { mediaEntity ->
             val stringBase64 = convertirArchivoABase64(mediaEntity.rutaArchivo)
             FotoDto(
                 tipoMedia = mediaEntity.tipoMedia,
                 fotoBase64 = stringBase64
             )
-        }*/
-        val fotosDto = emptyList<FotoDto>()
+        }
 
 
         return ActaEnviarDto(
             cabecera = cabeceraDto,
-            infractor = infractorDto,
+            infractor = infractorPrincipal,
+            personasVinculadas = todosLosInfractores,
             faltas = faltasDto,
             testigos = testigosDto,
             datosTransito = datosTransitoDto,
             datosInspeccion = datosInspeccionDto,
-            fotos = fotosDto // 👈 📸 Pasamos la lista al DTO
+            fotos = fotosDto
         )
     }
 

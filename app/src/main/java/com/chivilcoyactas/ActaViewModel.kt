@@ -21,6 +21,20 @@ enum class TipoFormulario { TRANSITO, INSPECCION }
 
 data class Infraccion(val id: Int = 0,val codigo: String, val nombre: String)
 
+data class PersonaVinculada(
+    var nombre: String = "",
+    var dni: String = "",
+    var tieneLicencia: Boolean = false,
+    var nroLicencia: String = "",
+    var calle: String = "",
+    var altura: String = "",
+    var provincia: String = "BUENOS AIRES",
+    var localidad: String = "CHIVILCOY",
+    var cp: String = "6620",
+    var tipoVinculo: String? = null,
+    var firmaPath: String? = null
+)
+
 // 🕵️ El cambio clave: heredamos de AndroidViewModel pasándole 'application'
 class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -32,7 +46,6 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         }
         set(value) {}
     var firmaInfractorPath: String? = null
-    var firmaTestigoPath: String? = null
     var infractorSeNiegaAFirmar: Boolean = false
     var procTipoInmueble: String = ""
     var idActaLocal: Long = 0L
@@ -72,8 +85,11 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         emit(catalogoDao.obtenerProvincias())
     }
 
-    var Testigo1Provincia: String = "BUENOS AIRES"
-    var Testigo2Provincia: String = "BUENOS AIRES"
+    val todosLosRolesInvolucrado = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
+        emit(catalogoDao.obtenerTodosLosRolesInvolucrado())
+    }
+
+
 
     var fecha: String = ""
     var hora: String = ""
@@ -89,6 +105,11 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
 
     var tipoActa: Int? = null
+
+    var listaTiposBienesDisponibles: List<TipoBienDto> = emptyList()
+    var idTipoBienSeleccionado: Int? = null
+    var bienesSeleccionadosIds: MutableSet<Int> = mutableSetOf()
+
     var nroActa: String = ""
     var idSistema: String = ""
 
@@ -136,7 +157,6 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var procCheckInmueble: Boolean = false
     var procCheckVehiculo: Boolean = false
     var procRefActa: String = ""
-    var procSeProcedeA: String = ""
 
     var comNombreFantasia: String = ""
     var comHabNumero: String = ""
@@ -156,6 +176,7 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var catParcelaLet: String = ""
     var catSubparcela: String = ""
     var catUF: String = ""
+    var catPartidaMunicipal: String = ""
 
     // --- PASO 3: INFRACTOR ---
     var niegaDatos: Int = -1 // -1 = Sin seleccionar, 0 = Aporta, 1 = Niega, 2 = No se encuentra
@@ -170,12 +191,92 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var localidadInfractor: String = "CHIVILCOY"
     var cpInfractor: String = "6620"
 
-    var vinculoLugar: String = "Propietario"
+    var vinculoLugar: String = "" // Guardará los chips seleccionados "Propietario, Encargado"
 
-    var nombreResponsable: String = ""
-    var dniResponsable: String = ""
-    var calleResponsable: String = ""
-    var alturaResponsable: String = ""
+    // Mapa para guardar los datos de cada vínculo dinámico (solo Inspección)
+    var datosPersonasVinculadas: MutableMap<String, PersonaVinculada> = mutableMapOf()
+
+    // --- PROPIEDADES DERIVADAS PARA UI ---
+    val listaInfractores: List<PersonaVinculada>
+        get() {
+            val mapa = mutableMapOf<String, PersonaVinculada>()
+            val rolesPorClave = mutableMapOf<String, MutableSet<String>>()
+
+            fun obtenerClave(dni: String, nombre: String): String {
+                val d = dni.replace(".", "").replace("-", "").trim()
+                return if (d.isNotEmpty()) d else nombre.trim().lowercase()
+            }
+
+            fun agregarRoles(clave: String, rolesString: String?) {
+                if (rolesString.isNullOrBlank()) return
+                val set = rolesPorClave.getOrPut(clave) { mutableSetOf() }
+                rolesString.split(",").forEach {
+                    val r = it.trim()
+                    if (r.isNotEmpty()) set.add(r)
+                }
+            }
+
+            // 1. Infractor Principal / Conductor
+            if (ApellidoNombreInfractor.isNotBlank() || dniInfractor.isNotBlank()) {
+                val clave = obtenerClave(dniInfractor, ApellidoNombreInfractor)
+                val rol = if (tipoFormulario == TipoFormulario.TRANSITO) "Conductor" else vinculoLugar
+                agregarRoles(clave, if (rol.isNullOrBlank()) "Infractor" else rol)
+
+                mapa[clave] = PersonaVinculada(
+                    nombre = ApellidoNombreInfractor,
+                    dni = dniInfractor,
+                    tieneLicencia = tieneLicencia,
+                    nroLicencia = nroLicencia,
+                    calle = calleInfractor,
+                    altura = alturaInfractor,
+                    provincia = provinciaInfractor,
+                    localidad = localidadInfractor,
+                    cp = cpInfractor,
+                    tipoVinculo = "", // Se setea abajo por prioridad
+                    firmaPath = firmaInfractorPath
+                )
+            }
+
+            // 2. Otros Vinculados
+            datosPersonasVinculadas.forEach { (rol, p) ->
+                val clave = obtenerClave(p.dni, p.nombre)
+                agregarRoles(clave, rol)
+
+                if (!mapa.containsKey(clave)) {
+                    mapa[clave] = p.copy()
+                } else {
+                    if (mapa[clave]?.firmaPath == null) mapa[clave]?.firmaPath = p.firmaPath
+                }
+            }
+
+            // 3. Aplicar prioridad de roles y limpiar "Infractor"
+            mapa.forEach { (clave, persona) ->
+                val roles = rolesPorClave[clave] ?: mutableSetOf()
+                if (roles.isEmpty()) roles.add("Infractor")
+
+                val esTransito = tipoFormulario == TipoFormulario.TRANSITO
+
+                // Prioridad: Propietario > Conductor > Encargado > otros
+                val prioritario = when {
+                    roles.contains("Propietario") -> "Propietario"
+                    roles.contains("Conductor") -> "Conductor"
+                    roles.contains("Encargado") -> "Encargado"
+                    else -> {
+                        // Filtrar "Infractor" si hay cualquier otro rol
+                        val otros = roles.filter { it != "Infractor" }
+                        if (otros.isNotEmpty()) {
+                            otros.first()
+                        } else {
+                            // Si solo es infractor, en tránsito le decimos Conductor
+                            if (esTransito) "Conductor" else "Infractor"
+                        }
+                    }
+                }
+                persona.tipoVinculo = prioritario
+            }
+
+            return mapa.values.toList()
+        }
 
     // --- PASO 4: VEHÍCULO ---
     var tipoVehiculo: String = ""
@@ -209,6 +310,8 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var retencionLicencia: Boolean = false
     var retencionAnimal: Boolean = false
 
+    val bienesDescripciones = mutableMapOf<Int, String>()
+
     //SECUESTRO
 
     var tipoVehiculoIdSelected: Int = 0 // El ID numérico del vehículo seleccionado en la pantalla previa (ej. Auto=1, Moto=2)
@@ -221,30 +324,31 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
 
     //  --- PASO 7 : TESTIGOS --
+    var Testigo1Provincia: String = "BUENOS AIRES"
+    var Testigo2Provincia: String = "BUENOS AIRES"
+
     var Testigo1Dni: String = ""
     var Testigo1Nombre: String = ""
-    var Testigo1Domicilio: String = ""
-    var Testigo1Localidad: String = ""
+    var Testigo1Calle: String = ""
+    var Testigo1CalleNro: String = ""
+    var Testigo1Localidad: String = "CHIVILCOY"
     var Testigo1Cp: String = ""
+    var Testigo1FirmaPath: String? = null
 
     var Testigo2Dni: String = ""
     var Testigo2Nombre: String = ""
-    var Testigo2Domicilio: String = ""
-    var Testigo2Localidad: String = ""
+    var Testigo2Calle: String = ""
+    var Testigo2CalleNro: String = ""
+    var Testigo2Localidad: String = "CHIVILCOY"
     var Testigo2Cp: String = ""
+    var Testigo2FirmaPath: String? = null
 
 
     // ---- PASO 8 : FIRMA --
 
-    var firmaTestigo: Bitmap? = null
-
-    var nombreTestigo: String? = null
-
     var procedimiento: String = ""
 
     var seNiegaAFirmar: Boolean = false
-
-    var firmaInfractor: Bitmap? = null
 
     // ---- PASO 9 : FIRMA --
     var observaciones: String = ""
@@ -362,8 +466,9 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         catParcelaLet = ""
         catSubparcela = ""
         catUF = ""
+        catPartidaMunicipal = ""
         procRefActa = ""
-        procSeProcedeA = ""
+        procTipoInmueble = "" // 🚀 Agregado
         niegaDatos = -1
         motivoDatos = ""
         ApellidoNombreInfractor = ""
@@ -375,11 +480,8 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         cpInfractor = "6620"
         calleInfractor = ""
         alturaInfractor = ""
-        vinculoLugar = "Propietario"
-        nombreResponsable = ""
-        dniResponsable = ""
-        calleResponsable = ""
-        alturaResponsable = ""
+        vinculoLugar = ""
+        datosPersonasVinculadas.clear()
         tipoVehiculo = ""
         dominio = ""
         marca = ""
@@ -403,18 +505,17 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         incluyoInterior = false
         Testigo1Dni = ""
         Testigo1Nombre = ""
-        Testigo1Domicilio = ""
+        Testigo1Calle = ""
+        Testigo1CalleNro = ""
         Testigo1Localidad = ""
         Testigo1Cp = ""
         Testigo2Dni = ""
         Testigo2Nombre = ""
-        Testigo2Domicilio = ""
+        Testigo2Calle = ""
+        Testigo2CalleNro = ""
         Testigo2Localidad = ""
         Testigo2Cp = ""
         seNiegaAFirmar = false
-        firmaTestigo = null
-        nombreTestigo = ""
-        firmaInfractor = null
         observaciones = ""
         // Para limpiar un LiveData de tipo MutableList:
         _listaFotos.value = mutableListOf()

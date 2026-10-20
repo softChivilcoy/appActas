@@ -3,20 +3,33 @@ package com.chivilcoyactas
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import android.content.Context
+import android.view.inputmethod.InputMethodManager
 import com.chivilcoyactas.databinding.FragmentUbicacionBinding
+import com.chivilcoyactas.ui.acta.MapaCompletoDialogFragment
+import com.chivilcoyactas.utils.GeoUtils
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -60,27 +73,36 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         (activity as? MainActivity)?.actualizarProgreso(1)
 
+
         // Solución moderna para el UserAgent sin PreferenceManager viejos
         Configuration.getInstance().userAgentValue = requireContext().packageName
         super.onViewCreated(view, savedInstanceState)
 
-        // Cargar datos preexistentes si es una edición de borrador
-        cargarDatosUbicacionDesdeViewModel()
+        // 1. Ajuste automático del ScrollView según la altura REAL del teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollUbicacion) { view, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            // Le damos de padding inferior la altura del teclado + 32dp extra de respiro
+            val extraPadding = if (imeHeight > 0) imeHeight + (32 * resources.displayMetrics.density).toInt() else 0
 
-        // 1. 🛠️ PASO PRIMARIO: Recuperamos lo que haya en el ViewModel de entrada
-        latitudActual = actaViewModel.latitud ?: 0.0
-        longitudActual = actaViewModel.longitud ?: 0.0
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                extraPadding
+            )
+            insets
+        }
 
-        // 2. Inicializamos el cliente de GPS y disparamos la búsqueda en segundo plano
+        // Se Inicia SIEMPRE la instancia para evitar el crash si se accede luego
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-        obtenerUbicacion()
 
-        // 3. Forzamos el casteo de la vista del binding al MapView de OSMDroid
-        openStreetMap = binding.mapView as? org.osmdroid.views.MapView
+        // 1. Asignamos e inicializamos el Mapa PRIMERO que nada
+        openStreetMap = binding.mapView
 
         // --- CONFIGURACIÓN INICIAL DEL MAPA ---
         openStreetMap?.let { mapa ->
             mapa.setTileSource(TileSourceFactory.MAPNIK)
+
             mapa.setMultiTouchControls(true)
             mapa.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
 
@@ -88,6 +110,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
             mapController.setZoom(16.0)
 
             mapa.setDestroyMode(false)
+
             mapa.post { mapa.invalidate() }
 
             mapa.setOnTouchListener { _, event ->
@@ -96,24 +119,35 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
             }
         }
 
-        // 4. Evaluamos el centrado del mapa inicial
-        if (latitudActual != 0.0 && longitudActual != 0.0) {
-            // Si el inspector volvió atrás, el mapa clava la ubicación guardada al instante
-            actualizarMarcadorMapa()
-        } else {
-            // Si es un acta nueva de paquete, se para en la plaza un milisegundo de base
-            // mientras 'obtenerUbicacion()' (que ya se disparó arriba) encuentra el punto real
-            // y lo mueve automáticamente.
-            val plazaChivilcoy = GeoPoint(-34.8981, -60.0183)
-            openStreetMap?.controller?.setCenter(plazaChivilcoy)
-            openStreetMap?.controller?.setZoom(16.0)
-            openStreetMap?.post { openStreetMap?.invalidate() }
+        // 2. Cargar datos preexistentes si es una edición de borrador
+        cargarDatosUbicacionDesdeViewModel()
+
+        //configurarMapa()          // 1. Bloquea el mapa e inhabilita el arrastre táctil
+
+        // 1. 🛠️ PASO PRIMARIO: Recuperamos lo que haya en el ViewModel de entrada
+        latitudActual = actaViewModel.latitud
+        longitudActual = actaViewModel.longitud
+
+        // 3. Evaluamos si es un borrador o un acta nueva
+        // 🚀 Esperamos a que la vista esté completamente inflada para operar sobre el mapa
+        binding.root.post {
+            if (latitudActual != 0.0 && longitudActual != 0.0) {
+                actualizarMarcadorMapa()
+                evaluarEjidoUrbanoAutomatico(latitudActual, longitudActual)
+
+                binding.tvGpsStatus.text = "📍 UBICACIÓN CONSERVADA DE LA INSPECCIÓN ✅"
+                binding.tvGpsStatus.setTextColor(Color.parseColor("#33BB66"))
+            } else {
+                val plazaChivilcoy = GeoPoint(-34.8981, -60.0183)
+                openStreetMap?.controller?.setCenter(plazaChivilcoy)
+
+
+                obtenerUbicacion()
+            }
         }
 
-
-
         // --- ESCUCHA DE MOVIMIENTO DEL MAPA ---
-        openStreetMap?.addMapListener(object : org.osmdroid.events.MapListener {
+       /* openStreetMap?.addMapListener(object : org.osmdroid.events.MapListener {
             override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
                 // Cada vez que el inspector arrastra el mapa, el centro cambia
                 openStreetMap?.mapCenter?.let { centro ->
@@ -131,11 +165,9 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
             override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
                 return true
             }
-        })
+        })*/
 
         // --- 1. CONFIGURACIÓN DEL BUSCADOR DE CALLES OFFLINE ---
-
-        //val callesChivilcoy = arrayOf("Av. Ceballos", "Av. Soarez", "Pellegrini", "25 de Mayo", "Moreno", "Belgrano", "Sarmiento")
 
         // Cargamos el listado completo desde el XML de recursos de la App
         val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
@@ -197,7 +229,12 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
         // 🚀 BLOQUE DE VALIDACIÓN ESTRICTA Y MANEJO DE FOCO:
         binding.acCalle.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
+            if (hasFocus) {
+                binding.acCalle.post {
+                    binding.acCalle.selectAll()
+                }
+                ejecutarAutoScroll(binding.acCalle)
+            } else {
                 val textoIngresado = binding.acCalle.text.toString().trim()
 
                 if (textoIngresado.isNotEmpty()) {
@@ -218,6 +255,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
                         // Si existe pero lo escribió con diferencias de mayúsculas, se corrige
                         val calleOficial = callesChivilcoy.first { it.equals(textoIngresado, ignoreCase = true) }
                         binding.acCalle.setText(calleOficial)
+                        binding.acCalle.error = null
                     }
                 }
             }
@@ -226,11 +264,12 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         // --- 2. LÓGICA DE OPERATIVO (SOLO TRÁNSITO) ---
         if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) {
             binding.layoutOperativoContainer.visibility = View.VISIBLE
-            binding.cvEjidoUrbano.visibility = View.VISIBLE
+            //binding.cvEjidoUrbano.visibility = View.VISIBLE
         } else {
             binding.layoutOperativoContainer.visibility = View.GONE
-            binding.cvEjidoUrbano.visibility = View.GONE
+           // binding.cvEjidoUrbano.visibility = View.GONE
         }
+
 
         binding.swOperativo.setOnCheckedChangeListener { _, isChecked ->
             actaViewModel.esOperativo = isChecked
@@ -245,30 +284,56 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         }
 
         // --- 3. LÓGICA DEL SWITCH: DETALLES ADICIONALES ---
+        // 1. Manejo del Switch con layout pass garantizado
         binding.swDetalleUbicacion.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 binding.tvEstadoDetalle.text = "Sí"
                 binding.tvEstadoDetalle.setTextColor(Color.parseColor("#33BB66"))
+
                 binding.layoutCamposDetalleUbicacion.visibility = View.VISIBLE
-                binding.scrollUbicacion.postDelayed({
-                    binding.scrollUbicacion.smoothScrollTo(0, binding.swDetalleUbicacion.top)
-                }, 200)
+
+                binding.layoutCamposDetalleUbicacion.doOnLayout {
+                    // Hacemos scroll directo al contenedor de los detalles
+                    binding.scrollUbicacion.post {
+                        binding.scrollUbicacion.smoothScrollTo(0, binding.layoutCamposDetalleUbicacion.top)
+                    }
+                }
             } else {
                 binding.tvEstadoDetalle.text = "No"
                 binding.tvEstadoDetalle.setTextColor(Color.parseColor("#777777"))
                 binding.layoutCamposDetalleUbicacion.visibility = View.GONE
-                binding.etDeptoUbicacion.text?.clear()
-                binding.etReferenciaUbicacion.text?.clear()
+                binding.etDeptoUbicacion.setText("")
+                binding.etReferenciaUbicacion.setText("")
             }
         }
+
+        binding.etDeptoUbicacion.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(view)
+            }
+        }
+
+        binding.etReferenciaUbicacion.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(view)
+            }
+        }
+        
+        binding.etAlturaUbicacion.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(view)
+            }
+        }
+        //configurarAutoScrollEnCamposInfractor()
+
 
         // --- 4. RECUPERAR DATOS SI EL INSPECTOR VOLVIÓ ATRÁS ---
         recuperarDatosUbicacion()
 
         // --- 5. CONFIGURACIÓN DE AUTO-SCROLLS ---
-        configurarAutoScroll(binding.etAlturaUbicacion)
+       /* configurarAutoScroll(binding.etAlturaUbicacion)
         configurarAutoScroll(binding.etDeptoUbicacion)
-        configurarAutoScroll(binding.etReferenciaUbicacion)
+        configurarAutoScroll(binding.etReferenciaUbicacion)*/
 
         // --- 6. GESTIÓN DEL TECLADO Y FOCOS ---
         binding.acCalle.setOnEditorActionListener { _, actionId, _ ->
@@ -291,8 +356,46 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         }
 
         binding.acCalle.setOnItemClickListener { _, _, _, _ ->
-            (activity as? MainActivity)?.hideKeyboard()
+            //(activity as? MainActivity)?.hideKeyboard()
             binding.etAlturaUbicacion.requestFocus()
+        }
+
+
+        // 1. Asignar icono directamente desde sistema/recurso
+        binding.tilReferenciaUbicacion.endIconDrawable = androidx.core.content.ContextCompat.getDrawable(
+            requireContext(),
+            android.R.drawable.ic_menu_close_clear_cancel
+        )
+
+        // 2. Tintar el icono para garantizar visibilidad
+        binding.tilReferenciaUbicacion.setEndIconTintList(
+            android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#777777"))
+        )
+
+        // 3. Forzar visibilidad
+        binding.tilReferenciaUbicacion.isEndIconVisible = true
+
+        binding.tilReferenciaUbicacion.setEndIconOnClickListener {
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etReferenciaUbicacion.windowToken, 0)
+            binding.etReferenciaUbicacion.clearFocus()
+        }
+
+        //-------------------------------------
+        // ABRE MAPA
+        binding.btnExpandirMapa.setOnClickListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val db = AppDatabase.getDatabase(requireContext())
+                val ejidoEntity = db.catalogoDao().obtenerEjidoUrbano()
+                val coordenadas = ejidoEntity?.coordenadas?.map { GeoPoint(it.lat, it.lng) } ?: emptyList()
+
+                val dialog = MapaCompletoDialogFragment(
+                    latitud = latitudActual,
+                    longitud = longitudActual,
+                    puntosEjido = coordenadas
+                )
+                dialog.show(parentFragmentManager, "MapaCompletoDialog")
+            }
         }
 
         // --- 7. BOTÓN SIGUIENTE (CON VALIDACIÓN Y GUARDADO) ---
@@ -319,9 +422,32 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
             // Al tocarlo, obligamos a la app a chequear el sensor de nuevo
             obtenerUbicacion()
         }
+
+        dibujarEjidoEnMapa()
     }
 
     // --- FUNCIONES AUXILIARES DE FLUJO ---
+
+    private fun ejecutarAutoScroll(view: View) {
+        view.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            // Intentar encontrar el TextInputLayout para incluir el label en el scroll
+            val parentInput = (view.parent?.parent as? TextInputLayout) ?: (view.parent as? TextInputLayout) ?: view
+            val rect = Rect()
+            parentInput.getDrawingRect(rect)
+
+            try {
+                binding.scrollUbicacion.offsetDescendantRectToMyCoords(parentInput, rect)
+                // Scrolleamos para que el campo quede en la parte superior con un margen generoso (80dp)
+                val margin = (80 * resources.displayMetrics.density).toInt()
+                val scrollY = (rect.top - margin).coerceAtLeast(0)
+                binding.scrollUbicacion.smoothScrollTo(0, scrollY)
+            } catch (e: Exception) {
+                // Fallback si falla la conversión de coordenadas
+            }
+        }, 450)
+    }
 
     private fun validarCamposUbicacion(): Boolean {
         val calle = binding.acCalle.text.toString().trim()
@@ -410,36 +536,36 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
     }
 
     // --- LÓGICA DEL MAPA Y GPS (Limpiado y Adaptado a OpenStreetMap) ---
+    private var marcadorUbicacionGps: org.osmdroid.views.overlay.Marker? = null
 
     private fun actualizarMarcadorMapa() {
         val mapa = openStreetMap ?: return
 
-        if (latitudActual != 0.0) {
-            val puntoReal = GeoPoint(latitudActual, longitudActual)
+        if (latitudActual != 0.0 && longitudActual != 0.0) {
+            val puntoGps = GeoPoint(latitudActual, longitudActual)
 
-            // 🛠️ Forzamos el zoom exacto justo antes de mover la cámara
-            mapa.controller.setZoom(16.5)
-            mapa.controller.setCenter(puntoReal)
+            // 1. Si ya existe el marcador, lo eliminamos antes de re-crearlo
+            marcadorUbicacionGps?.let { mapa.overlays.remove(it) }
 
-            // Refrescamos el dibujo por las dudas
-            mapa.post { mapa.invalidate() }
-            /*
-            // Limpiamos todas las capas viejas para no duplicar nada
-            mapa.overlays.clear()
-
-            markerActual?.let { mapa.overlays.remove(it) }
-
-            markerActual = Marker(mapa).apply {
-                position = puntoChivilcoy
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                title = "Ubicación del Acta"
-
-                // 🛠️ AGREGA ESTA LÍNEA: Usa el icono de mapa nativo de Android
-                icon = androidx.core.content.ContextCompat.getDrawable(requireContext(), android.R.drawable.ic_menu_mylocation)
+            // 2. Creamos el pin nativo fijado en las coordenadas del GPS
+            marcadorUbicacionGps = org.osmdroid.views.overlay.Marker(mapa).apply {
+                position = puntoGps
+                //title = "Posición GPS verificada" // 1. Quitamos el 'title' para que no tenga texto que mostrar
+                setAnchor(
+                    org.osmdroid.views.overlay.Marker.ANCHOR_CENTER,
+                    org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM
+                )
+                // 2. Consumimos el evento de clic y devolvemos 'true' para evitar que abra la ventana flotante
+                setOnMarkerClickListener { _, _ -> true }
             }
 
-            mapa.overlays.add(markerActual)
-            mapa.invalidate()*/
+            mapa.overlays.add(marcadorUbicacionGps)
+
+            // 3. Centramos el mapa en el punto GPS
+            mapa.controller.setZoom(16.5)
+            mapa.controller.setCenter(puntoGps)
+
+            mapa.post { mapa.invalidate() }
         }
     }
 
@@ -447,13 +573,19 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         super.onResume()
         openStreetMap?.onResume()
 
-        // 🔄 Cada vez que el inspector vuelve a la pantalla, re-chequeamos el estado del GPS
-        obtenerUbicacion()
+        // 🚀 Solo si es un acta NUEVA (sin coordenadas cargadas aún), re-chequeamos el GPS
+        if (latitudActual == 0.0 && longitudActual == 0.0) {
+            if (::fusedLocationClient.isInitialized) {
+                obtenerUbicacion()
+            }
+        }
     }
 
     override fun onPause() {
-        // Apaga el buscador de GPS para cuidar la batería del dispositivo
-        fusedLocationClient.removeLocationUpdates(object : com.google.android.gms.location.LocationCallback() {})
+        // 🚀 Apagamos el GPS de forma segura verificando si fue inicializado previamente
+        if (::fusedLocationClient.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(object : com.google.android.gms.location.LocationCallback() {})
+        }
 
         openStreetMap?.onPause()
         super.onPause()
@@ -474,54 +606,53 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
             return
         }
 
-        // 3. Si el GPS está prendido, ponemos un estado de "Buscando..." para dar feedback visual
+        // 3. Feedback visual de búsqueda
         if (latitudActual == 0.0) {
             binding.tvGpsStatus.text = "🔄 BUSCANDO SEÑAL DE GPS..."
-            binding.tvGpsStatus.setTextColor(Color.parseColor("#FF9800")) // Color naranja
+            binding.tvGpsStatus.setTextColor(Color.parseColor("#FF9800"))
         }
 
-        // 4. Intentamos primero con la última ubicación conocida
+        // 4. Intento con la última ubicación conocida
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
             if (location != null && (System.currentTimeMillis() - location.time) < 30000) {
-                // Si la última ubicación existe y es fresca (menos de 30 segundos), la usamos de una
-                latitudActual = location.latitude
-                longitudActual = location.longitude
-                actaViewModel.latitud = location.latitude
-                actaViewModel.longitud = location.longitude
-
-                binding.tvGpsStatus.text = "📍 UBICACIÓN VERIFICADA ✅"
-                binding.tvGpsStatus.setTextColor(Color.parseColor("#33BB66"))
-                actualizarMarcadorMapa()
+                // Ubicación fresca encontrada de inmediato
+                aplicarUbicacionDetectada(location.latitude, location.longitude, "📍 UBICACIÓN VERIFICADA ✅")
             } else {
-                // 🚀 SI NO HAY UBICACIÓN FRESCA, DISPARAMOS EL BUSCADOR CONTINUO ASTUTO
+                // No hay ubicación fresca: iniciamos búsqueda activa en tiempo real
                 val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
-                    com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 2000 // Chequea cada 2 segundos
+                    com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 2000
                 ).setMinUpdateIntervalMillis(1000).build()
-
-                // Removemos cualquier petición previa por las dudas antes de arrancar la nueva
-                fusedLocationClient.removeLocationUpdates(object : com.google.android.gms.location.LocationCallback() {})
 
                 fusedLocationClient.requestLocationUpdates(locationRequest, object : com.google.android.gms.location.LocationCallback() {
                     override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
                         val lastLoc = locationResult.lastLocation ?: return
 
-                        // ¡ENGANCHÓ! Guardamos los datos reales
-                        latitudActual = lastLoc.latitude
-                        longitudActual = lastLoc.longitude
-                        actaViewModel.latitud = lastLoc.latitude
-                        actaViewModel.longitud = lastLoc.longitude
+                        // Ubicación encontrada tras la búsqueda activa
+                        aplicarUbicacionDetectada(lastLoc.latitude, lastLoc.longitude, "📍 UBICACIÓN EN TIEMPO REAL ✅")
 
-                        // Actualizamos la interfaz limpiando el error viejo
-                        binding.tvGpsStatus.text = "📍 UBICACIÓN EN TIEMPO REAL ✅"
-                        binding.tvGpsStatus.setTextColor(Color.parseColor("#33BB66"))
-                        actualizarMarcadorMapa()
-
-                        // 🔥 CLAVE: Como ya encontramos la ubicación, apagamos el buscador para no gastar batería
+                        // Apagamos el buscador para cuidar la batería
                         fusedLocationClient.removeLocationUpdates(this)
                     }
                 }, android.os.Looper.getMainLooper())
             }
         }
+    }
+
+    /**
+     * Función auxiliar interna para no repetir las mismas 5 líneas de asignación
+     */
+    private fun aplicarUbicacionDetectada(lat: Double, lng: Double, mensajeEstado: String) {
+        latitudActual = lat
+        longitudActual = lng
+
+        actaViewModel.latitud = lat
+        actaViewModel.longitud = lng
+
+        binding.tvGpsStatus.text = mensajeEstado
+        binding.tvGpsStatus.setTextColor(Color.parseColor("#33BB66"))
+
+        actualizarMarcadorMapa()
+        evaluarEjidoUrbanoAutomatico(lat, lng)
     }
 
     override fun onDestroyView() {
@@ -536,35 +667,115 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
                 locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
     }
 
+    private fun dibujarEjidoEnMapa() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val db = AppDatabase.getDatabase(requireContext())
+
+            // 1. Traemos la entidad desde Room
+            val ejidoEntity = db.catalogoDao().obtenerEjidoUrbano()
+            val coordenadas = ejidoEntity?.coordenadas ?: return@launch
+
+            if (coordenadas.size >= 3) {
+                openStreetMap?.let { mapa ->
+                    // 2. Mapeamos la lista de Coordenada a GeoPoint de OSMDroid
+                    val puntosGeo = coordenadas.map { GeoPoint(it.lat, it.lng) }
+
+                    // 3. Creamos la figura del polígono
+                    val poligonoEjido = org.osmdroid.views.overlay.Polygon(mapa).apply {
+                        points = puntosGeo
+                        // Relleno: Verde claro con 20% de opacidad (#3300FF00)
+                        fillPaint.color = android.graphics.Color.argb(50, 46, 125, 50)
+                        // Borde: Verde oscuro (#2E7D32) de 3dp de grosor
+                        outlinePaint.color = android.graphics.Color.parseColor("#2E7D32")
+                        outlinePaint.strokeWidth = 4f
+
+                        // 🚀 CLAVE: Desactivamos el click listener para que no interfiera con el arrastre del mapa
+                        setOnClickListener { _, _, _ -> false }
+                    }
+
+                    // 4. Limpiamos capas previas de polígonos y agregamos la nueva
+                    mapa.overlays.removeAll { it is org.osmdroid.views.overlay.Polygon }
+                    mapa.overlays.add(0, poligonoEjido) // Se agrega en la capa 0 (al fondo)
+                    mapa.invalidate() // Refrescamos el lienzo del mapa
+                }
+            }
+        }
+    }
+
+    private fun evaluarEjidoUrbanoAutomatico(lat: Double, lng: Double) {
+        if (lat == 0.0 && lng == 0.0) return
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Obtenemos el ejido almacenado en la DB local
+            val db = AppDatabase.getDatabase(requireContext())
+            val ejidoEntity = db.catalogoDao().obtenerEjidoUrbano() // O desde catalogoDao si lo tenés inyectado
+            val coordenadas = ejidoEntity?.coordenadas ?: emptyList()
+
+            if (coordenadas.isNotEmpty()) {
+                val estaDentro = GeoUtils.estaDentroDelEjido(lat, lng, coordenadas)
+
+                if (estaDentro) {
+                    binding.rgEjidoUrbano.check(R.id.rbEjidoDentro)
+                    actaViewModel.ejidoUrbano = 0
+                } else {
+                    binding.rgEjidoUrbano.check(R.id.rbEjidoFuera)
+                    actaViewModel.ejidoUrbano = 1
+                }
+            }
+        }
+    }
+
+    private fun configurarMapa() {
+        // 🚀 Inhabilitamos gestos táctiles (zoom y arrastre)
+        binding.mapView.setMultiTouchControls(false)
+        binding.mapView.setOnTouchListener { _, _ -> true } // Consume los toques para que no se mueva
+
+        // Fijamos el nivel de zoom predeterminado (ej: 16f)
+        binding.mapView.controller.setZoom(16.0)
+    }
+
+
     private fun cargarDatosUbicacionDesdeViewModel() {
-        // Si no es un borrador o está vacío, no hace nada
+        // 🛡️ Si es una acta nueva y no hay datos de calle, salimos limpios
         if (actaViewModel.esNuevaActa && actaViewModel.calle.isEmpty()) return
 
-        // 1. Calle y Altura
-        binding.acCalle.setText(actaViewModel.calle, false)
-        val alturaTexto = when (val alt = actaViewModel.altura) {
-            null, 0 -> ""
-            else -> alt.toString()
+        try {
+            // 1. Calle segura (Evita crash si calle viene nula)
+            val calleSegura = actaViewModel.calle ?: ""
+            if (calleSegura.isNotEmpty()) {
+                binding.acCalle.setText(calleSegura, false) // 'false' evita que se abra el desplegable de sugerencias
+            }
+
+            // 2. Altura segura (Conversión limpia a String)
+            val alturaTexto = when (val alt = actaViewModel.altura) {
+                null, 0 -> ""
+                else -> alt.toString()
+            }
+            binding.etAlturaUbicacion.setText(alturaTexto)
+
+            // 3. Ejido Urbano (Validación segura de los radio buttons)
+            when (actaViewModel.ejidoUrbano) {
+                0 -> binding.rgEjidoUrbano.check(R.id.rbEjidoDentro)
+                1 -> binding.rgEjidoUrbano.check(R.id.rbEjidoFuera)
+                else -> binding.rgEjidoUrbano.clearCheck()
+            }
+
+            // 4. Detalles adicionales
+            val deptoSeguro = actaViewModel.ubDepto ?: ""
+            val refSegura = actaViewModel.ubReferencia ?: ""
+
+            binding.etDeptoUbicacion.setText(deptoSeguro)
+            binding.etReferenciaUbicacion.setText(refSegura)
+
+            // 5. Switch de detalles
+            val tieneDetalles = actaViewModel.ubTieneDetalleAdicional ||
+                    deptoSeguro.isNotEmpty() ||
+                    refSegura.isNotEmpty()
+
+            binding.swDetalleUbicacion.isChecked = tieneDetalles
+
+        } catch (e: Exception) {
+            android.util.Log.e("UBICACION_FRAGMENT", "Error al cargar datos desde ViewModel: ${e.message}")
         }
-        binding.etAlturaUbicacion.setText(alturaTexto)
-
-        // 2. Ejido Urbano
-        when (actaViewModel.ejidoUrbano) {
-            0 -> binding.rgEjidoUrbano.check(R.id.rbEjidoDentro)
-            1 -> binding.rgEjidoUrbano.check(R.id.rbEjidoFuera)
-            else -> binding.rgEjidoUrbano.clearCheck()
-        }
-
-        // 3. Detalles adicionales (Piso/Depto y Referencia)
-        binding.etDeptoUbicacion.setText(actaViewModel.ubDepto)
-        binding.etReferenciaUbicacion.setText(actaViewModel.ubReferencia)
-
-        // 4. Activar Switch y contenedor si cuenta con detalles adicionales
-        val tieneDetalles = actaViewModel.ubTieneDetalleAdicional ||
-                actaViewModel.ubDepto.isNotEmpty() ||
-                actaViewModel.ubReferencia.isNotEmpty()
-
-        binding.swDetalleUbicacion.isChecked = tieneDetalles
-        //binding.layoutDetallesAdicionales.visibility = if (tieneDetalles) View.VISIBLE else View.GONE
     }
 }

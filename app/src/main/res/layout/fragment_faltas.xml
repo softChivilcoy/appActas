@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollFaltas"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
+    android:padding="12dp"
+    android:clipToPadding="false"
     android:fillViewport="true"
-    android:isScrollContainer="true"
-    android:id="@+id/scrollFaltas">
+    android:isScrollContainer="true">
 
     <LinearLayout
+        android:id="@+id/contenedorPrincipal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:focusableInTouchMode="true">
 
         <TextView
             android:layout_width="wrap_content"
@@ -19,22 +22,27 @@
             android:text="⚖️ FALTAS E INFRACCIONES"
             android:textColor="#33BB66"
             android:textStyle="bold"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:layout_marginBottom="16dp"/>
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputLayoutFaltas"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Seleccionar Falta"
             android:layout_marginBottom="8dp">
+
             <AutoCompleteTextView
                 android:id="@+id/autoCompleteFaltas"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
+                android:inputType="text|textNoSuggestions|textVisiblePassword"
                 android:singleLine="true"
-                android:completionThreshold="1"/>
+                android:completionThreshold="1"
+                android:dropDownHeight="220dp"
+                android:imeOptions="actionNext"
+                android:importantForAutofill="no"/>
         </com.google.android.material.textfield.TextInputLayout>
 
        <!-- <Button
@@ -49,6 +57,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Faltas seleccionadas:"
+            android:textColor="#33BB66"
             android:textStyle="bold"
             android:textSize="14sp"/>
 
@@ -58,7 +67,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:animateLayoutChanges="true">
             <TextView
                 android:id="@+id/tvSinFaltas"
                 android:layout_width="match_parent"
@@ -72,22 +82,29 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Descripcion de la Falta:"
+            android:textColor="#33BB66"
             android:textStyle="bold"
             android:textSize="14sp"/>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:id="@+id/textInputLayoutObservaciones"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="24dp"
+            app:endIconMode="custom"
+            app:endIconDrawable="@android:drawable/ic_menu_close_clear_cancel"
+            app:endIconContentDescription="Ocultar Teclado">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/ftObservaciones"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:lines="3"
                 android:gravity="top"
-                android:inputType="textMultiLine"
-                android:imeOptions="actionNext" />
+                android:imeOptions="actionDone"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences|textNoSuggestions"
+                android:minLines="3"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <LinearLayout
@@ -102,6 +119,8 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:text="VOLVER"
+                app:icon="@drawable/ic_arrow_back_thin"
+                app:iconGravity="textStart"
                 android:layout_marginEnd="8dp"/>
             <Button
                 android:id="@+id/btnSiguienteFaltas"
@@ -114,6 +133,7 @@
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="300dp" />
+            android:layout_height="250dp" />
+
     </LinearLayout>
 </ScrollView>

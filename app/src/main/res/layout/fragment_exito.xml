@@ -89,7 +89,8 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:text="📝 NUEVA ACTA"
-            android:backgroundTint="#2563EB"
+            android:backgroundTint="#33BB66"
+            android:textColor="@android:color/white"
             android:layout_marginEnd="8dp"/>
 
         <Button

@@ -13,8 +13,9 @@ data class InfractorDto(
     @SerializedName("altura") val altura: String,
     @SerializedName("niegadatos") val niegaDatos: Int,
     @SerializedName("vinculolugar") val vinculoLugar: String?, // 👈 Agregado el vínculo para Inspección General
-    @SerializedName("firmaPath") val firmaPath: String? = null
-
+    @SerializedName("nroLicencia") val nroLicencia: String? = null, // 🚀 AGREGADO
+    @SerializedName("firmaPath") val firmaPath: String? = null,
+    @SerializedName("motivoniega") val motivoNiega: String? = null
 )
 
 // 📝 Faltas (Queda igual)

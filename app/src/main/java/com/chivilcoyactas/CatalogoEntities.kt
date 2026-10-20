@@ -55,7 +55,8 @@ data class TipoLocalidadEntity(
 @Entity(tableName = "local_tipos_actas")
 data class TipoActaEntity(
     @PrimaryKey val id: Int,
-    val nombre: String
+    val nombre: String,
+    val requiereFaltas: Boolean = false // 👈 Agregado
 )
 
 @Entity(tableName = "configuracion_quincenas")
@@ -85,4 +86,11 @@ data class TipoVehiculoCheckEntity(
     val paramChecklistId: Int,
     val ordenUi: Int,
     val esObligatorio: Boolean
+)
+
+@Entity(tableName = "tipo_roles_involucrado")
+data class TipoRolInvolucradoEntity(
+    @PrimaryKey val id: Int,
+    val codigo: String,
+    val requiereLicencia: Boolean
 )

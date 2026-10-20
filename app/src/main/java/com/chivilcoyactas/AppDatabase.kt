@@ -4,17 +4,21 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.Room
+import androidx.room.TypeConverters
 import com.chivilcoyactas.TipoVehiculoCheckEntity
+import com.chivilcoyactas.TipoRolInvolucradoEntity
 
 @Database(
     entities = [
         ActaEntity::class,
         PuntoSecuenciaEntity::class,
+        EjidoUrbanoEntity::class,
         ActaInfractorEntity::class,
         ActaVehiculoEntity::class,
         ActaFaltasEntity::class,
         ActaMediaEntity::class,
         ActaAlcoholemiaEntity::class,
+        ActaBienRetenidoEntity::class,
         ActaSecuestroEntity::class,
         ActaMedidaPreventivaEntity::class,
         ActaTestigoEntity::class,
@@ -33,16 +37,21 @@ import com.chivilcoyactas.TipoVehiculoCheckEntity
         QuincenaEntity::class,
         CheckVehicularEntity::class,
         TipoVehiculoCheckEntity::class,
+        TipoRolInvolucradoEntity::class,
     ],
-    version = 15,
+    version = 20,
     exportSchema = false // Recomendado para proyectos simples
 )
+
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun actaDao(): ActaDao
     abstract fun catalogoDao(): CatalogoDao // 👈 Agregamos el acceso al DAO de catálogos
 
     abstract fun puntoSecuenciaDao(): PuntoSecuenciaDao
+
+    abstract fun ejidoUrbanoDao(): EjidoUrbanoDao
 
     companion object {
         // @Volatile asegura que el valor de INSTANCE sea siempre actual para todos los hilos

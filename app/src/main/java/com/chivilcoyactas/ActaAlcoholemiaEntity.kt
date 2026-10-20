@@ -23,5 +23,5 @@ data class ActaAlcoholemiaEntity(
     val modeloAlcoholimetro: String,
     val nroSerieAlcoholimetro: String,
     val codAprobacionAlcoholimetro: String,
-    val alcoholimetroId: Int
+    val alcoholimetroId: Int? = null
 )

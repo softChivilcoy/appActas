@@ -15,10 +15,18 @@ data class CatalogosMaestrosResponse(
     @SerializedName("quincenas") val quincenas: List<QuincenaDto>,
     @SerializedName("categorias_inspeccion") val categoriasInspeccion: List<CategoriaInspeccionDto>?,
     @SerializedName("param_checklist_vehicular") val paramChecklistVehicular: List<CheckVehicularDto>? ,
-    @SerializedName("tipo_vehiculo_checklist") val tipoVehiculoChecklist: List<TipoVehiculoCheckDto>?  // 👈 AGREGADO
+    @SerializedName("tipo_vehiculo_checklist") val tipoVehiculoChecklist: List<TipoVehiculoCheckDto>?,
+    @SerializedName("tipo_roles_involucrado") val tipoRolesInvolucrado: List<TipoRolInvolucradoDto>?,
+    @SerializedName("ejido_urbano") val ejidoUrbano: EjidoUrbanoDto?
 )
 
 // --- Clases Hijas (DTOs) ---
+
+data class TipoRolInvolucradoDto(
+    @SerializedName("id") val id: Int,
+    @SerializedName("codigo") val codigo: String,
+    @SerializedName("requiere_licencia") val requiereLicencia: Boolean
+)
 
 data class AlcoholimetrosDto(
     @SerializedName("id") val id: Int,
@@ -65,7 +73,12 @@ data class TipoLocalidadDto(
 data class TipoActaDto(
     @SerializedName("id") val id: Int,
     @SerializedName("nombre") val nombre: String,
-    @SerializedName("formulario") val formulario: String?
+    @SerializedName("requiere_faltas") val requiereFaltas: Boolean = false // 👈 Agregado
+)
+
+data class TipoBienDto(
+    @SerializedName("id") val id: Int,
+    @SerializedName("nombre") val nombre: String
 )
 
 data class QuincenaDto(
@@ -75,7 +88,7 @@ data class QuincenaDto(
     @SerializedName("id_juzgado") val idJuzgado: Int  // 👈 Mapea 'id_juzgado' de Postgres
 )
 
-data class CategoriaInspeccionDto( // 👈 AGREGADO
+data class CategoriaInspeccionDto(
     @SerializedName("id") val id: Int,
     @SerializedName("nombre") val nombre: String
 )
@@ -95,4 +108,14 @@ data class TipoVehiculoCheckDto( // 👈 AGREGADO
     @SerializedName("param_checklist_id") val paramChecklistId: Int,
     @SerializedName("orden_ui") val ordenUi: Int,
     @SerializedName("es_obligatorio") val esObligatorio: Boolean
+)
+
+data class EjidoUrbanoDto(
+    @SerializedName("updated_at") val updatedAt: String?,
+    @SerializedName("coordenadas") val coordenadas: List<CoordenadaDto>?
+)
+
+data class CoordenadaDto(
+    @SerializedName("lat") val lat: Double,
+    @SerializedName("lng") val lng: Double
 )

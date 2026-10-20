@@ -1,30 +1,37 @@
 package com.chivilcoyactas
 
+import android.graphics.Rect
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
+import android.widget.CheckBox
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.chivilcoyactas.databinding.FragmentAlcoholemiaBinding
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 
 class AlcoholemiaFragment : Fragment() {
 
     private val actaViewModel: ActaViewModel by activityViewModels()
     private var _binding: FragmentAlcoholemiaBinding? = null
     private val binding get() = _binding!!
-
-    // Lista de alcoholímetros disponibles (puedes reemplazar esto con los datos reales de la BD/SessionManager)
 
     private var listaEquipos: List<AlcoholimetrosEntity> = emptyList()
 
@@ -37,19 +44,180 @@ class AlcoholemiaFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Forzar scroll al inicio al entrar o volver
+        binding.scrollAlcoholemia.post {
+            binding.scrollAlcoholemia.scrollTo(0, 0)
+        }
+
+        // Aplicar padding dinámico según el teclado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollAlcoholemia) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val density = resources.displayMetrics.density
+            val extraPadding = (32 * density).toInt()
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, imeHeight + extraPadding)
+            insets
+        }
+
         (activity as? MainActivity)?.actualizarProgreso(5)
 
-        // 1. Cargar catálogo de equipos y configurar el Spinner
-        configurarDropdownEquipos()
+        // 1. Ocultar o Mostrar el Test de Alcoholemia según el Tipo de Formulario
+        evaluarVisibilidadAlcoholemia()
 
-        // 2. Cargar estado guardado en ViewModel
+        // 2. Renderizar dinámicamente los Bienes de la Repartición seleccionada
+        generarCheckboxesBienes()
+
+        // 3. Cargar catálogo de equipos y configurar el Spinner
+        if (actaViewModel.tipoFormulario != TipoFormulario.INSPECCION) {
+            configurarDropdownEquipos()
+        }
+
+        // 4. Cargar estado guardado en ViewModel
         recuperarDatos()
 
-        // 3. Configurar Listeners de UI
+        // 5. Configurar Listeners de UI
         setupListeners()
 
-        // 4. Configuración de Teclado y Scroll
+        // 6. Configuración de Teclado y Scroll
         configurarTecladoYFocus()
+    }
+
+    private fun evaluarVisibilidadAlcoholemia() {
+        val esInspeccion = actaViewModel.tipoFormulario == TipoFormulario.INSPECCION
+
+        if (esInspeccion) {
+            binding.checkHacerTest.visibility = View.GONE
+            binding.cardTest.visibility = View.GONE
+            actaViewModel.hacerTestAlcoholemia = false
+        } else {
+            binding.checkHacerTest.visibility = View.VISIBLE
+        }
+    }
+
+    private fun generarCheckboxesBienes() {
+        val container = binding.containerBienesPreventivos
+        container.removeAllViews()
+
+        val bienes = actaViewModel.listaTiposBienesDisponibles
+
+        if (bienes.isEmpty()) return
+
+        bienes.forEach { bien ->
+            val itemLayout = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, 16)
+                }
+            }
+
+            val esVehiculo = bien.nombre.contains("Vehiculo", ignoreCase = true) ||
+                    bien.nombre.contains("Vehículo", ignoreCase = true) ||
+                    bien.nombre.contains("Auto", ignoreCase = true) ||
+                    bien.nombre.contains("Moto", ignoreCase = true)
+
+            // 1. CheckBox
+            val checkBox = MaterialCheckBox(requireContext()).apply {
+                id = View.generateViewId()
+                text = "Retención / Secuestro de ${bien.nombre}"
+                textSize = 15f
+                tag = bien.id
+
+                isChecked = actaViewModel.bienesSeleccionadosIds.contains(bien.id)
+
+                // Scroll suave al hacer foco
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) {
+                        binding.scrollAlcoholemia.post {
+                            val positionY = container.top + itemLayout.top
+                            binding.scrollAlcoholemia.smoothScrollTo(0, positionY)
+                        }
+                    }
+                }
+            }
+
+            // 2. Campo de Texto (TextInputLayout + TextInputEditText) - Solo si NO es vehículo
+            val textInputLayout = if (!esVehiculo) {
+                TextInputLayout(requireContext()).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    hint = "Observaciones / Descripción de ${bien.nombre}"
+                    boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+                    visibility = if (checkBox.isChecked) View.VISIBLE else View.GONE
+
+                    val editText = TextInputEditText(context).apply {
+                        setText(actaViewModel.bienesDescripciones[bien.id] ?: "")
+                        isSingleLine = true
+                        imeOptions = EditorInfo.IME_ACTION_DONE
+                        setSelectAllOnFocus(true)
+
+                        // Scroll suave al enfocar
+                        setOnFocusChangeListener { v, hasFocus ->
+                            if (hasFocus) {
+                                ejecutarAutoScroll(v)
+                                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+                            } else {
+                                v.setBackgroundResource(0)
+                            }
+                        }
+
+                        // 🚀 Al presionar Enter / Listo: ocultar teclado y quitar foco
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_NULL) {
+                                (activity as? MainActivity)?.hideKeyboard()
+                                clearFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                if (checkBox.isChecked) {
+                                    actaViewModel.bienesDescripciones[bien.id] = s.toString()
+                                }
+                            }
+                            override fun afterTextChanged(s: android.text.Editable?) {}
+                        })
+                    }
+                    addView(editText)
+                }
+            } else null
+
+            // 3. Lógica al marcar / desmarcar
+            checkBox.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    if (!actaViewModel.bienesSeleccionadosIds.contains(bien.id)) {
+                        actaViewModel.bienesSeleccionadosIds.add(bien.id)
+                    }
+                    textInputLayout?.visibility = View.VISIBLE
+
+                    textInputLayout?.editText?.let { input ->
+                        input.requestFocus()
+                        (activity as? MainActivity)?.mostrarTeclado(input)
+                    }
+                } else {
+                    actaViewModel.bienesSeleccionadosIds.remove(bien.id)
+                    actaViewModel.bienesDescripciones.remove(bien.id)
+                    textInputLayout?.visibility = View.GONE
+                }
+
+                if (esVehiculo) {
+                    actaViewModel.retencionVehiculo = isChecked
+                }
+            }
+
+            itemLayout.addView(checkBox)
+            textInputLayout?.let { itemLayout.addView(it) }
+
+            container.addView(itemLayout)
+        }
     }
 
     private fun configurarDropdownEquipos() {
@@ -63,7 +231,6 @@ class AlcoholemiaFragment : Fragment() {
                 listaEquipos = equiposDb
 
                 if (listaEquipos.isNotEmpty()) {
-                    // Formato para diferenciar equipos de la misma marca
                     val itemsDropdown = listaEquipos.map { "${it.marca ?: "Sin Marca"} (Serie: ${it.nroSerie ?: "S/C"})" }
 
                     val context = context ?: return@withContext
@@ -74,20 +241,18 @@ class AlcoholemiaFragment : Fragment() {
                     )
                     binding.spinnerAlcoMarca.setAdapter(adapter)
 
-                    // Listener al seleccionar un equipo manualmente del catálogo
                     binding.spinnerAlcoMarca.setOnItemClickListener { _, _, position, _ ->
                         if (position in listaEquipos.indices) {
                             val equipoSeleccionado = listaEquipos[position]
-
-                            // 1. Muestra solo la marca limpia en el campo de texto
                             binding.spinnerAlcoMarca.setText(equipoSeleccionado.marca ?: "", false)
-
-                            // 2. Autocompleta modelo, serie y homologación
                             autocompletarEquipo(equipoSeleccionado)
+
+                            // Pasar foco al resultado automáticamente
+                            binding.etResultado.requestFocus()
+                            (activity as? MainActivity)?.mostrarTeclado(binding.etResultado)
                         }
                     }
 
-                    // Si no había selección en SessionManager, intentamos restaurar por ID en ViewModel
                     if (SessionManager.obtenerAlcoholimetro(requireContext()) == null) {
                         restaurarSeleccionPrevia()
                     }
@@ -102,18 +267,13 @@ class AlcoholemiaFragment : Fragment() {
             val equipoGuardado = listaEquipos.find { it.id == idGuardado }
             equipoGuardado?.let { equipo ->
                 val marca = equipo.marca ?: ""
-
-                // Muestra ÚNICAMENTE la marca en el combo sin desplegar la lista
                 binding.spinnerAlcoMarca.setText(marca, false)
-
-                // Completa automáticamente los demás campos en la pantalla
                 binding.etAlcoModelo.setText(equipo.modelo ?: "")
                 binding.etAlcoSerie.setText(equipo.nroSerie ?: "")
                 binding.etAlcoAprobacion.setText(equipo.codHomologacion ?: "")
             }
         }
     }
-
 
     private fun autocompletarEquipo(equipo: AlcoholimetrosEntity) {
         binding.apply {
@@ -122,7 +282,6 @@ class AlcoholemiaFragment : Fragment() {
             etAlcoAprobacion.setText(equipo.codHomologacion)
         }
 
-        // Persistir en ViewModel los datos y el ID
         actaViewModel.alcoholimetroId = equipo.id
         actaViewModel.alcoMarca = equipo.marca
         actaViewModel.alcoModelo = equipo.modelo
@@ -131,7 +290,6 @@ class AlcoholemiaFragment : Fragment() {
     }
 
     private fun setupListeners() {
-        // Test de Alcoholemia Toggle
         binding.checkHacerTest.setOnCheckedChangeListener { _, isChecked ->
             actaViewModel.hacerTestAlcoholemia = isChecked
             binding.cardTest.visibility = if (isChecked) View.VISIBLE else View.GONE
@@ -149,20 +307,19 @@ class AlcoholemiaFragment : Fragment() {
             actaViewModel.seAdjuntaPlanillaMedica = isChecked
         }
 
-        // Medidas Preventivas
-        binding.checkRetencionVehiculo.setOnCheckedChangeListener { _, isChecked ->
-            actaViewModel.retencionVehiculo = isChecked
-        }
-        binding.checkRetencionLicencia.setOnCheckedChangeListener { _, isChecked ->
-            actaViewModel.retencionLicencia = isChecked
-        }
-        binding.checkAnimal.setOnCheckedChangeListener { _, isChecked ->
-            actaViewModel.retencionAnimal = isChecked
-        }
-
         setupErrorClearing()
 
-        // Botones de Navegación
+        binding.etResultado.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
+                (activity as? MainActivity)?.hideKeyboard()
+                binding.etResultado.clearFocus()
+                true
+            } else {
+                false
+            }
+        }
+
         binding.btnVolverAlco.setOnClickListener { findNavController().navigateUp() }
         binding.btnSiguienteAlco.setOnClickListener { procesarSiguientePaso() }
     }
@@ -173,13 +330,14 @@ class AlcoholemiaFragment : Fragment() {
     }
 
     private fun procesarSiguientePaso() {
-        if (binding.checkHacerTest.isChecked) {
+        if (binding.checkHacerTest.visibility == View.VISIBLE && binding.checkHacerTest.isChecked) {
             if (!validarFormularioTest()) return
         }
 
         guardarEnViewModel()
 
-        if (binding.checkRetencionVehiculo.isChecked) {
+        // Si se seleccionó retención de vehículo en los CheckBoxes dinámicos
+        if (actaViewModel.retencionVehiculo) {
             evaluarFlujoSecuestro()
         } else {
             findNavController().navigate(R.id.action_alcoholemia_to_testigos)
@@ -223,79 +381,70 @@ class AlcoholemiaFragment : Fragment() {
     }
 
     private fun guardarEnViewModel() {
-        val textoCombo = binding.spinnerAlcoMarca.text.toString().trim()
+        if (binding.checkHacerTest.visibility == View.VISIBLE) {
+            val textoCombo = binding.spinnerAlcoMarca.text.toString().trim()
+            val marcaLimpia = if (textoCombo.contains(" (Serie:")) {
+                textoCombo.substringBefore(" (Serie:")
+            } else {
+                textoCombo
+            }
 
-        // Si viene en formato "Marca (Serie: XXX)", extraemos solo la Marca
-        val marcaLimpia = if (textoCombo.contains(" (Serie:")) {
-            textoCombo.substringBefore(" (Serie:")
-        } else {
-            textoCombo
+            actaViewModel.alcoMarca = marcaLimpia
+            actaViewModel.alcoModelo = binding.etAlcoModelo.text.toString().trim()
+            actaViewModel.alcoSerie = binding.etAlcoSerie.text.toString().trim()
+            actaViewModel.alcoAprobacion = binding.etAlcoAprobacion.text.toString().trim()
+
+            val resultadoStr = binding.etResultado.text.toString().trim().replace(",", ".")
+            actaViewModel.ftResultado = resultadoStr.toDoubleOrNull() ?: 0.0
         }
-
-        actaViewModel.alcoMarca = marcaLimpia
-        actaViewModel.alcoModelo = binding.etAlcoModelo.text.toString().trim()
-        actaViewModel.alcoSerie = binding.etAlcoSerie.text.toString().trim()
-        actaViewModel.alcoAprobacion = binding.etAlcoAprobacion.text.toString().trim()
-
-        val resultadoStr = binding.etResultado.text.toString().trim().replace(",", ".")
-        actaViewModel.ftResultado = resultadoStr.toDoubleOrNull() ?: 0.0
     }
 
     private fun recuperarDatos() {
-        // 1. Obtener el Mapa cargado desde SessionManager
-        val equipoSession   = SessionManager.obtenerAlcoholimetro(requireContext())
-        val marcaRaw        = equipoSession["marca"] ?: ""
-        val modelo          = equipoSession["modelo"] ?: ""
-        val serie           = equipoSession["serie"] ?: ""
-        val codHomologacion = equipoSession["codHomologacion"] ?: ""
+        if (actaViewModel.tipoFormulario != TipoFormulario.INSPECCION) {
+            val equipoSession = SessionManager.obtenerAlcoholimetro(requireContext())
+            val marcaRaw = equipoSession["marca"] ?: ""
+            val modelo = equipoSession["modelo"] ?: ""
+            val serie = equipoSession["serie"] ?: ""
+            val codHomologacion = equipoSession["codHomologacion"] ?: ""
 
-        // Si por alguna razón la marca venía guardada como "Marca (Serie: XXX)", extraemos solo la marca
-        val marcaLimpia = if (marcaRaw.contains(" (Serie:")) {
-            marcaRaw.substringBefore(" (Serie:")
-        } else {
-            marcaRaw
+            val marcaLimpia = if (marcaRaw.contains(" (Serie:")) {
+                marcaRaw.substringBefore(" (Serie:")
+            } else {
+                marcaRaw
+            }
+
+            if (marcaLimpia.isNotEmpty() || serie.isNotEmpty()) {
+                binding.checkHacerTest.isChecked = true
+                binding.cardTest.visibility = View.VISIBLE
+
+                binding.spinnerAlcoMarca.setText(marcaLimpia, false)
+                binding.etAlcoModelo.setText(modelo)
+                binding.etAlcoSerie.setText(serie)
+                binding.etAlcoAprobacion.setText(codHomologacion)
+
+                actaViewModel.hacerTestAlcoholemia = true
+                actaViewModel.alcoMarca = marcaLimpia
+                actaViewModel.alcoModelo = modelo
+                actaViewModel.alcoSerie = serie
+                actaViewModel.alcoAprobacion = codHomologacion
+            } else {
+                binding.checkHacerTest.isChecked = actaViewModel.hacerTestAlcoholemia
+                binding.cardTest.visibility = if (actaViewModel.hacerTestAlcoholemia) View.VISIBLE else View.GONE
+
+                binding.spinnerAlcoMarca.setText(actaViewModel.alcoMarca, false)
+                binding.etAlcoModelo.setText(actaViewModel.alcoModelo)
+                binding.etAlcoSerie.setText(actaViewModel.alcoSerie)
+                binding.etAlcoAprobacion.setText(actaViewModel.alcoAprobacion)
+            }
+
+            if (actaViewModel.ftResultado > 0.0) {
+                binding.etResultado.setText(actaViewModel.ftResultado.toString())
+            } else {
+                binding.etResultado.setText("")
+            }
+
+            binding.checkPlanillaMedica.isChecked = actaViewModel.seAdjuntaPlanillaMedica
         }
-
-        // Verificamos si realmente hay un equipo cargado (si la marca o la serie no están vacías)
-        if (marcaLimpia.isNotEmpty() || serie.isNotEmpty()) {
-            binding.checkHacerTest.isChecked = true
-            binding.cardTest.visibility = View.VISIBLE
-
-            // 👈 Setea ÚNICAMENTE la marca limpia en la vista
-            binding.spinnerAlcoMarca.setText(marcaLimpia, false)
-
-            binding.etAlcoModelo.setText(modelo)
-            binding.etAlcoSerie.setText(serie)
-            binding.etAlcoAprobacion.setText(codHomologacion)
-
-            // Guardar en el ViewModel
-            actaViewModel.hacerTestAlcoholemia = true
-            actaViewModel.alcoMarca = marcaLimpia
-            actaViewModel.alcoModelo = modelo
-            actaViewModel.alcoSerie = serie
-            actaViewModel.alcoAprobacion = codHomologacion
-        } else {
-            // Carga normal desde ViewModel si no vino nada en SessionManager
-            binding.checkHacerTest.isChecked = actaViewModel.hacerTestAlcoholemia
-            binding.cardTest.visibility = if (actaViewModel.hacerTestAlcoholemia) View.VISIBLE else View.GONE
-
-            binding.spinnerAlcoMarca.setText(actaViewModel.alcoMarca, false)
-            binding.etAlcoModelo.setText(actaViewModel.alcoModelo)
-            binding.etAlcoSerie.setText(actaViewModel.alcoSerie)
-            binding.etAlcoAprobacion.setText(actaViewModel.alcoAprobacion)
-        }
-
-        // Cargar resultado numérico y checkboxes
-        if (actaViewModel.ftResultado > 0.0) {
-            binding.etResultado.setText(actaViewModel.ftResultado.toString())
-        } else {
-            binding.etResultado.setText("")
-        }
-
-        binding.checkPlanillaMedica.isChecked = actaViewModel.seAdjuntaPlanillaMedica
-        binding.checkRetencionVehiculo.isChecked = actaViewModel.retencionVehiculo
-        binding.checkRetencionLicencia.isChecked = actaViewModel.retencionLicencia
-        binding.checkAnimal.isChecked = actaViewModel.retencionAnimal
     }
 
     private fun limpiarCamposTest() {
@@ -320,17 +469,46 @@ class AlcoholemiaFragment : Fragment() {
             false
         }
 
-        val views = listOf(binding.spinnerAlcoMarca, binding.etResultado)
-        views.forEach { view ->
-            view.setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) {
-                    binding.scrollAlcoholemia.postDelayed({
-                        val rect = android.graphics.Rect(0, 0, v.width, v.height)
-                        v.requestRectangleOnScreen(rect, false)
-                    }, 300)
-                }
+        // AutoCompleteTextViews
+        binding.spinnerAlcoMarca.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                (v as? android.widget.AutoCompleteTextView)?.showDropDown()
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
             }
         }
+        binding.spinnerAlcoMarca.setOnClickListener {
+            (it as? android.widget.AutoCompleteTextView)?.showDropDown()
+        }
+
+        // EditTexts
+        binding.etResultado.setSelectAllOnFocus(true)
+        binding.etResultado.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+    }
+
+    private fun ejecutarAutoScroll(view: View) {
+        binding.scrollAlcoholemia.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = Rect()
+            view.getDrawingRect(rect)
+            binding.scrollAlcoholemia.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollAlcoholemia.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
     }
 
     override fun onDestroyView() {

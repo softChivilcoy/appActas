@@ -1,24 +1,17 @@
 package com.chivilcoyactas
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Path
-import android.view.MotionEvent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.chivilcoyactas.databinding.FragmentConfiguracionAlcoBinding
-import com.chivilcoyactas.databinding.FragmentExitoBinding
-import kotlin.getValue
-import android.widget.ArrayAdapter
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,22 +23,7 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
     private var _binding: FragmentConfiguracionAlcoBinding? = null
     private val binding get() = _binding!!
 
-    // Variables para el motor de dibujo manual
-    private lateinit var bitmapFirma: Bitmap
-    private lateinit var canvasFirma: Canvas
-    private val paintFirma = Paint().apply {
-        color = Color.BLACK
-        isAntiAlias = true
-        strokeWidth = 6f
-        style = Paint.Style.STROKE
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
-    }
-    private val pathFirma = Path()
-    private var haFirmado = false // Flag para obligar a que dibuje
-
     private var listaEquipos: List<AlcoholimetrosEntity> = emptyList()
-
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -53,21 +31,18 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
     ): View {
         _binding = FragmentConfiguracionAlcoBinding.inflate(inflater, container, false)
 
-        // Ocultar progreso
-        (activity as? MainActivity)?.findViewById<View>(R.id.progressBar)?.visibility = View.GONE
-        (activity as? MainActivity)?.findViewById<View>(R.id.tvProgreso)?.visibility = View.GONE
+        // Ocultar barra de progreso global
+        (activity as? MainActivity)?.setProgressBarVisibility(false)
 
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        (activity as? MainActivity)?.setProgressBarVisibility(false)
         SessionManager.limpiaFirma(requireContext())
 
-        // 1. Configurar Visibilidad del Card con el Switch
+        // 1. Configurar Visibilidad y Animación del Card con el Switch
         binding.switchHabilitarAlco.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 binding.tvEstadoAlco.text = "Sí"
@@ -79,13 +54,14 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
                 binding.tvEstadoAlco.text = "No"
                 binding.tvEstadoAlco.setTextColor(Color.parseColor("#777777"))
                 binding.cardDatosEquipo.visibility = View.GONE
+                limpiarCampos()
             }
         }
 
-        // 2. Cargar el listado de alcoholímetros desde el ViewModel
+        // 2. Cargar el listado de alcoholímetros desde Room
         cargarListaAlcoholimetros()
 
-        // 3. Listener cuando el inspector selecciona un equipo del desplegable
+        // 3. Listener de selección del desplegable
         binding.etConfigMarca.setOnItemClickListener { _, _, position, _ ->
             if (position in listaEquipos.indices) {
                 val equipoSeleccionado = listaEquipos[position]
@@ -121,7 +97,7 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
             findNavController().navigate(R.id.action_configAlco_to_step1)
         }
 
-        // Ocultar teclado al tocar fuera de los campos
+        // Ocultar teclado al tocar fuera de los campos de texto
         binding.scrollConfiguracion.setOnTouchListener { _, _ ->
             (activity as? MainActivity)?.hideKeyboard()
             false
@@ -130,14 +106,13 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
 
     private fun cargarListaAlcoholimetros() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val db = AppDatabase.getDatabase(requireContext()) // Ajustá con tu clase de BD
+            val db = AppDatabase.getDatabase(requireContext())
             val equiposDb = db.catalogoDao().obtenerAlcoholimetros()
 
             withContext(Dispatchers.Main) {
                 listaEquipos = equiposDb
 
                 if (listaEquipos.isNotEmpty()) {
-                    // Usamos "nroSerie" en lugar de "serie"
                     val nombresEquipos = listaEquipos.map { "${it.marca ?: "Sin Marca"} (Serie: ${it.nroSerie ?: "S/C"})" }
 
                     val adapter = ArrayAdapter(
@@ -146,10 +121,31 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
                         nombresEquipos
                     )
                     binding.etConfigMarca.setAdapter(adapter)
+
+                    // Verificar si ya existía un equipo activo en SessionManager
+                    restaurarEstadoPrevio()
                 } else {
-                    Toast.makeText(requireContext(), "No hay alcoholímetros cargados", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "No hay alcoholímetros cargados en el sistema", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private fun restaurarEstadoPrevio() {
+        val equipoGuardado = SessionManager.obtenerAlcoholimetro(requireContext())
+        val serie = equipoGuardado["serie"]
+
+        if (!serie.isNullOrEmpty()) {
+            binding.switchHabilitarAlco.isChecked = true
+
+            val marca = equipoGuardado["marca"] ?: ""
+            val modelo = equipoGuardado["modelo"] ?: ""
+            val codHomologacion = equipoGuardado["codHomologacion"] ?: ""
+
+            binding.etConfigMarca.setText("$marca (Serie: $serie)", false)
+            binding.etConfigModelo.setText(modelo)
+            binding.etConfigSerie.setText(serie)
+            binding.etConfigAprobacion.setText(codHomologacion)
         }
     }
 
@@ -158,6 +154,13 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
         binding.etConfigModelo.setText(equipo.modelo ?: "")
         binding.etConfigSerie.setText(equipo.nroSerie ?: "")
         binding.etConfigAprobacion.setText(equipo.codHomologacion ?: "")
+    }
+
+    private fun limpiarCampos() {
+        binding.etConfigMarca.setText("", false)
+        binding.etConfigModelo.setText("")
+        binding.etConfigSerie.setText("")
+        binding.etConfigAprobacion.setText("")
     }
 
     override fun onDestroyView() {

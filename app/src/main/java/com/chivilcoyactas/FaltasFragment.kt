@@ -1,18 +1,25 @@
 package com.chivilcoyactas
 
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
 import android.widget.ScrollView
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import com.chivilcoyactas.databinding.FragmentFaltasBinding
-import com.google.android.material.internal.ViewUtils.hideKeyboard
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.getValue
 
 class FaltasFragment : Fragment() {
@@ -31,6 +38,11 @@ class FaltasFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Reinicio de scroll al entrar
+        binding.scrollFaltas.post {
+            binding.scrollFaltas.scrollTo(0, 0)
+        }
 
         // Ajustar el número de paso según el área
         if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
@@ -93,38 +105,128 @@ class FaltasFragment : Fragment() {
                 agregarFaltaLogica(seleccion, listaMaestra.toTypedArray(), esClicDirecto = true)
             }
 
-            binding.autoCompleteFaltas.setOnEditorActionListener { _, _, _ ->
-                val texto = binding.autoCompleteFaltas.text.toString()
-                if (texto.isNotEmpty()) {
-                    agregarFaltaLogica(texto, listaMaestra.toTypedArray(), esClicDirecto = false)
+            binding.autoCompleteFaltas.setOnEditorActionListener { _, actionId, event ->
+                val esEnter = actionId == EditorInfo.IME_ACTION_NEXT ||
+                        actionId == EditorInfo.IME_ACTION_DONE ||
+                        (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+
+                if (esEnter) {
+                    val texto = binding.autoCompleteFaltas.text.toString()
+                    if (texto.isNotEmpty()) {
+                        agregarFaltaLogica(texto, listaMaestra.toTypedArray(), esClicDirecto = false)
+                    }
+
+                    // 🚀 Pasa el foco al campo de observaciones
+                    binding.ftObservaciones.requestFocus()
+                    binding.ftObservaciones.text?.let { editable ->
+                        binding.ftObservaciones.setSelection(editable.length)
+                    }
+                    true
+                } else {
+                    false
                 }
-                true
             }
         }
 
-        //------------------------------------------------
-        // Ocultar teclado al tocar fuera de los campos
-        binding.scrollFaltas.setOnTouchListener { _, _ ->
+
+        binding.textInputLayoutObservaciones.setEndIconOnClickListener {
+            // Limpiamos saltos de línea al final
+            val textoLimpio = binding.ftObservaciones.text.toString().trimEnd()
+            binding.ftObservaciones.setText(textoLimpio)
+
+            // Quitamos el foco y ocultamos teclado
+            binding.ftObservaciones.clearFocus()
+            binding.contenedorPrincipal.requestFocus()
             (activity as? MainActivity)?.hideKeyboard()
+
+            // Un solo scroll suave hacia arriba sin competir con lostFocus
+            binding.scrollFaltas.post {
+                binding.scrollFaltas.smoothScrollTo(0, 0)
+            }
+        }
+
+        // --- MEJORA 3: SCROLLS DINÁMICOS ---
+        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollFaltas) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val isVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            val density = resources.displayMetrics.density
+            
+            // Si el teclado está visible, agregamos un padding extra al final del scroll
+            // para que los campos inferiores puedan subir por encima del teclado.
+            // Dado que MainActivity usa adjustResize, el ScrollView ya se achica,
+            // por lo que sumamos un margen de seguridad (100dp) en lugar de toda la altura.
+            val paddingBase = (20 * density).toInt()
+            val paddingExtra = if (isVisible) (120 * density).toInt() else paddingBase
+            
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, paddingExtra)
+            insets
+        }
+
+        binding.autoCompleteFaltas.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                (v as? AutoCompleteTextView)?.showDropDown()
+                ejecutarAutoScroll(binding.textInputLayoutFaltas)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+
+        binding.ftObservaciones.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                ejecutarAutoScroll(binding.textInputLayoutObservaciones)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+
+        // 3. Ocultar teclado al tocar fuera
+        binding.scrollFaltas.setOnTouchListener { _, _ ->
+            if (binding.ftObservaciones.hasFocus() || binding.autoCompleteFaltas.hasFocus()) {
+                binding.ftObservaciones.clearFocus()
+                binding.autoCompleteFaltas.clearFocus()
+                binding.contenedorPrincipal.requestFocus()
+                (activity as? MainActivity)?.hideKeyboard()
+            }
             false
         }
 
         vincularBotones()
         recuperarDatosDeCaja()
+    }
 
-        // --- MEJORA 3: SCROLLS DINÁMICOS (Como los anteriores) ---
-        configurarAutoScroll(binding.autoCompleteFaltas)
-        configurarAutoScroll(binding.ftObservaciones)
+    private fun ejecutarAutoScroll(view: View) {
+        // Usamos post para esperar a que el teclado y el layout se estabilicen
+        binding.scrollFaltas.postDelayed({
+            if (_binding == null || !isAdded) return@postDelayed
+
+            val rect = android.graphics.Rect()
+            view.getDrawingRect(rect)
+            binding.scrollFaltas.offsetDescendantRectToMyCoords(view, rect)
+
+            val density = resources.displayMetrics.density
+            val offsetTop = (90 * density).toInt()
+
+            val targetY = rect.top - offsetTop
+            binding.scrollFaltas.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }, 500)
     }
 
     private fun dibujarFaltaEnPantalla(falta: Infraccion) {
-        // Creamos el item visual (tu lógica de antes pero más limpia)
+        val density = resources.displayMetrics.density
+        
+        // Creamos el item visual con medidas en DP
         val layoutFalta = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(30, 20, 30, 20)
-            background = resources.getDrawable(android.R.drawable.editbox_dropdown_light_frame)
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.setMargins(0, 0, 0, 15)
+            setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+            background = ContextCompat.getDrawable(requireContext(), android.R.drawable.editbox_dropdown_light_frame)
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, (8 * density).toInt())
+            }
             layoutParams = params
         }
 
@@ -151,6 +253,9 @@ class FaltasFragment : Fragment() {
 
                 if (actaViewModel.listaFaltasSeleccionadas.isEmpty()) {
                     binding.tvSinFaltas.visibility = View.VISIBLE
+                    // Si borra todas las faltas, limpiamos las observaciones sugeridas
+                    binding.ftObservaciones.setText("")
+                    actaViewModel.ftObservaciones = ""
                 }
             }
         }
@@ -175,6 +280,7 @@ class FaltasFragment : Fragment() {
 
             if (!yaExiste) {
                 binding.tvSinFaltas.visibility = View.GONE
+                binding.autoCompleteFaltas.error = null
 
                 // 1. Buscamos el objeto completo desde la lista cargada de Room
                 val objetoFaltaRoom = actaViewModel.todasLasFaltas.value?.find { it.codigo == codigoExtraido }
@@ -210,17 +316,10 @@ class FaltasFragment : Fragment() {
                 binding.autoCompleteFaltas.setText("")
                 Toast.makeText(context, "⚠️ Esta falta ya fue agregada al acta", Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-
-    private fun configurarAutoScroll(view: View) {
-        view.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                binding.scrollFaltas.postDelayed({
-                    // En el 3nStar, mandamos el campo al tope del scroll
-                    binding.scrollFaltas.smoothScrollTo(0, v.top)
-                }, 300)
-            }
+        } else if (textoLimpio.isNotEmpty() && !esValido) {
+            binding.autoCompleteFaltas.setText("")
+            binding.autoCompleteFaltas.error = "Seleccione una falta de la lista oficial"
+            Toast.makeText(context, "⚠️ La falta ingresada no es oficial", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -235,40 +334,24 @@ class FaltasFragment : Fragment() {
     }
 
     private fun vincularBotones() {
-        //val faltasArray = resources.getStringArray(R.array.lista_infracciones)
-
-        // Botón manual de agregar (por si no quiere usar el Enter)
-        /*binding.btnAgregarFalta.setOnClickListener {
-            val faltaTexto = binding.autoCompleteFaltas.text.toString()
-            agregarFaltaLogica(faltaTexto, faltasArray)
-        }*/
-
         binding.btnVolverFaltas.setOnClickListener {
             if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
-                // En inspección, atrás de Faltas está el Infractor
                 findNavController().navigate(R.id.action_faltas_to_infractor_VUELTA)
             } else {
-                // En tránsito, atrás de Faltas está Ubicación
-                findNavController().navigateUp()
+                findNavController().navigate(R.id.action_faltas_to_ubicacion)
             }
         }
 
         binding.btnSiguienteFaltas.setOnClickListener {
-
-            // Validación: Al menos una falta
             if (actaViewModel.listaFaltasSeleccionadas.isEmpty()) {
                 Toast.makeText(context, "Debe agregar al menos una falta", Toast.LENGTH_SHORT).show()
             } else {
-
                 if (binding.ftObservaciones.text.toString().isEmpty()) {
                     binding.ftObservaciones.error = "Campo Obligatorio"
                     Toast.makeText(requireContext(), "Descripcion de la falta", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-
-                // Guardar datos en el ViewModel
                 actaViewModel.ftObservaciones = binding.ftObservaciones.text.toString()
-
 
                 if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     findNavController().navigate(R.id.action_faltas_to_testigos)
@@ -278,14 +361,6 @@ class FaltasFragment : Fragment() {
             }
         }
     }
-
-    /*private fun hideKeyboard() {
-        val inputMethodManager = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-        val currentFocusedView = activity?.currentFocus
-        currentFocusedView?.let {
-            inputMethodManager.hideSoftInputFromWindow(it.windowToken, android.view.inputmethod.InputMethodManager.HIDE_NOT_ALWAYS)
-        }
-    }*/
 
     override fun onDestroyView() {
         super.onDestroyView()
