@@ -15,7 +15,7 @@ data class InfractorDto(
     @SerializedName("niegadatos") val niegaDatos: Int,
     @SerializedName("vinculolugar") val vinculoLugar: String?, // 👈 Agregado el vínculo para Inspección General
     @SerializedName("nroLicencia") val nroLicencia: String? = null, // 🚀 AGREGADO
-    @SerializedName("firmaPath") val firmaPath: String? = null,
+    @SerializedName("firma_base64") val firmaBase64: String? = null,
     @SerializedName("motivoniega") val motivoNiega: String? = null
 )
 
@@ -36,5 +36,5 @@ data class TestigoDto(
     @SerializedName("calleoriginal") val calleOriginal: String? = null,
     @SerializedName("alturacalle") val alturaCalle: String? = null,        // 🚀 NUEVO CAMPO
     @SerializedName("cporiginal") val cpOriginal: String,                 // 👈 Sacados los guiones bajos
-    @SerializedName("firmaPath") val firmaPath: String? = null
+    @SerializedName("firma_base64") val firmaBase64: String? = null
 )

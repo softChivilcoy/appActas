@@ -60,6 +60,12 @@ class FirmaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 0. Cargar firma del perfil al ViewModel si no está (para validación)
+        val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
+        if (actaViewModel.firmaInspectorBase64.isNullOrEmpty()) {
+            actaViewModel.firmaInspectorBase64 = prefs.getString("INSPECTOR_FIRMA_BASE64", null)
+        }
+
         // Estándar de Foco 3nStar
         binding.root.requestFocus()
 
@@ -75,34 +81,41 @@ class FirmaFragment : Fragment() {
 
         // 3. Botón Finalizar Acta (El que guarda todo el acta y sale)
         binding.btnIrAFirmar.setOnClickListener {
-            if (binding.checkSeNiegaAFirmar.isChecked) {
-                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
-                    mostrarDialogoEstadoInspeccion()
-                } else {
-                    guardarYEnviarAlServidor("ENVIADA")
-                }
-            } else {
-                // 🚀 Lógica de validación de firmas mejorada
-                val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
-                val tieneFirmaPerfil = !prefs.getString("INSPECTOR_FIRMA_BASE64", null).isNullOrEmpty()
-                
-                val hayAlgunaFirma = !actaViewModel.Testigo1FirmaPath.isNullOrEmpty() || 
-                                     !actaViewModel.Testigo2FirmaPath.isNullOrEmpty() || 
-                                     !actaViewModel.firmaInfractorPath.isNullOrEmpty() ||
-                                     actaViewModel.datosPersonasVinculadas.values.any { !it.firmaPath.isNullOrEmpty() } ||
-                                     !actaViewModel.firmaInspectorPath.isNullOrEmpty() ||
-                                     tieneFirmaPerfil // 👈 Si el inspector ya tiene firma en el perfil, es válida
+            val seNiega = binding.checkSeNiegaAFirmar.isChecked
 
-                if (!hayAlgunaFirma) {
-                    Toast.makeText(requireContext(), "Debe registrar al menos una firma o marcar que se niega", Toast.LENGTH_LONG).show()
+            // 1. Validar Inspector (SIEMPRE REQUERIDO: manual o perfil)
+            val tieneFirmaInspector = !actaViewModel.firmaInspectorPath.isNullOrEmpty() ||
+                                      !actaViewModel.firmaInspectorBase64.isNullOrEmpty()
+            
+            if (!tieneFirmaInspector) {
+                Toast.makeText(requireContext(), "Falta firma del Inspector (Verifique perfil o firme manualmente).", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // 2. Validar Testigos e Infractores (Solo si NO se niega)
+            if (!seNiega) {
+                // Testigo 1
+                if (!actaViewModel.Testigo1Nombre.isNullOrBlank() && actaViewModel.Testigo1FirmaPath.isNullOrEmpty()) {
+                    Toast.makeText(requireContext(), "Falta firma de Testigo 1: ${actaViewModel.Testigo1Nombre}", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
-
-                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
-                    mostrarDialogoEstadoInspeccion()
-                } else {
-                    guardarYEnviarAlServidor("ENVIADA")
+                // Testigo 2
+                if (!actaViewModel.Testigo2Nombre.isNullOrBlank() && actaViewModel.Testigo2FirmaPath.isNullOrEmpty()) {
+                    Toast.makeText(requireContext(), "Falta firma de Testigo 2: ${actaViewModel.Testigo2Nombre}", Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
                 }
+                // Infractores / Vinculados (Todos los que están en la lista)
+                val infractorSinFirma = actaViewModel.listaInfractores.find { it.firmaPath.isNullOrEmpty() }
+                if (infractorSinFirma != null) {
+                    Toast.makeText(requireContext(), "Falta firma de: ${infractorSinFirma.nombre}", Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+            }
+
+            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+                mostrarDialogoEstadoInspeccion()
+            } else {
+                guardarYEnviarAlServidor("ENVIADA")
             }
         }
 
@@ -110,7 +123,7 @@ class FirmaFragment : Fragment() {
             if (isChecked) {
                 binding.btnIrAFirmar.text = "FINALIZAR ACTA (SE NIEGA)"
             } else {
-                binding.btnIrAFirmar.text = "SIGUIENTE"
+                binding.btnIrAFirmar.text = "FINALIZAR ACTA"
             }
         }
 
@@ -176,7 +189,6 @@ class FirmaFragment : Fragment() {
 
     private fun generarBotonesDinamicos() {
         binding.containerBotonesFirmas.removeAllViews()
-        val context = requireContext()
 
         // 1. Botones para Testigos
         if (!actaViewModel.Testigo1Nombre.isNullOrBlank()) {
@@ -194,18 +206,23 @@ class FirmaFragment : Fragment() {
             agregarFilaFirma(texto, "VINCULO_$clave", !p.firmaPath.isNullOrEmpty())
         }
 
-        // 3. Firma del Inspector (Si no tiene firma pre-cargada en el perfil)
+        // 3. Firma del Inspector
         val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
         val firmaPerfil = prefs.getString("INSPECTOR_FIRMA_BASE64", null)
         val nombreIns = prefs.getString("INSPECTOR_NOMBRE", "Inspector")
 
-        if (!firmaPerfil.isNullOrEmpty()) {
-            // 🚀 Si tiene firma en el perfil, mostramos el botón como ya firmado
-            agregarFilaFirma("Firma Inspector (Perfil): $nombreIns", "INSPECTOR_PERFIL", true)
+        // 🚀 Si tiene perfil o firma manual, actúa como si ya estuviera firmado (check verde)
+        val yaFirmadoManualmente = !actaViewModel.firmaInspectorPath.isNullOrEmpty()
+        val tienePerfil = !firmaPerfil.isNullOrEmpty()
+        val yaEstaFirmado = yaFirmadoManualmente || tienePerfil
+
+        val textoBoton = if (tienePerfil && !yaFirmadoManualmente) {
+            "Firma Inspector (Perfil OK): $nombreIns"
         } else {
-            // Si no tiene firma en el perfil, permitimos la firma manual
-            agregarFilaFirma("Firma Inspector: $nombreIns", "INSPECTOR", !actaViewModel.firmaInspectorPath.isNullOrEmpty())
+            "Firma Inspector: $nombreIns"
         }
+
+        agregarFilaFirma(textoBoton, "INSPECTOR", yaEstaFirmado)
     }
 
     private fun agregarFilaFirma(texto: String, tag: String, yaFirmado: Boolean) {
@@ -246,22 +263,16 @@ class FirmaFragment : Fragment() {
             }
             this.isAllCaps = false
             
-            // 🚀 Solo permitimos clic si NO es la firma del perfil (la del perfil es fija)
-            if (tag != "INSPECTOR_PERFIL") {
-                this.setOnClickListener {
-                    procesarSeleccionFirma(tag)
-                }
-            } else {
-                this.setOnClickListener {
-                    Toast.makeText(context, "Se utilizará la firma de su perfil de usuario", Toast.LENGTH_SHORT).show()
-                }
+            // Siempre permitimos el clic para registrar firma manual (Firma Física)
+            this.setOnClickListener {
+                procesarSeleccionFirma(tag)
             }
         }
 
         layoutFila.addView(btn)
 
-        // Si ya está firmado Y NO ES la firma del perfil, agregamos el botón de borrar
-        if (yaFirmado && tag != "INSPECTOR_PERFIL") {
+        // Si ya está firmado, agregamos el botón de borrar
+        if (yaFirmado) {
             val btnBorrar = android.widget.ImageButton(context).apply {
                 setImageResource(android.R.drawable.ic_menu_delete)
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)

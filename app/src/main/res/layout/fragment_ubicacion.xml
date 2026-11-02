@@ -337,16 +337,23 @@
             android:textSize="14sp"
             android:visibility="gone"
             app:icon="@drawable/ic_arrow_back_thin"
-            app:iconGravity="textStart" />
+            app:iconGravity="textStart"
+            app:cornerRadius="12dp" />
 
         <Button
             android:id="@+id/btnSiguienteUbicacion"
             android:layout_width="0dp"
             android:layout_height="64dp"
             android:layout_weight="2"
-            android:text="CONFIRMAR UBICACIÓN ⮕"
+            android:backgroundTint="?attr/colorPrimary"
+            android:text="CONFIRMAR UBICACIÓN"
+            android:textColor="?attr/colorOnPrimary"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_arrow_forward"
+            app:iconGravity="textEnd"
+            app:iconPadding="8dp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

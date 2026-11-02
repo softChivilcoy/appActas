@@ -99,12 +99,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="72dp"
                 android:backgroundTint="?attr/colorPrimary"
-                android:text="MODO FIRMA"
+                android:text="FINALIZAR ACTA"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 app:cornerRadius="12dp"
-                app:icon="@drawable/ic_signature"
-                app:iconGravity="textStart"
+                app:icon="@drawable/ic_arrow_forward"
+                app:iconGravity="textEnd"
                 app:iconSize="24dp"
                 app:iconTint="@android:color/white" />
         </LinearLayout>
@@ -185,7 +185,8 @@
                         android:id="@+id/signaturePad"
                         android:layout_width="match_parent"
                         android:layout_height="300dp"
-                        android:background="@android:color/white"
+                        android:background="?attr/colorSurface"
+                        app:penColor="?attr/colorOnSurface"
                         android:saveEnabled="false" />
                 </com.google.android.material.card.MaterialCardView>
 
@@ -197,10 +198,10 @@
                     android:layout_gravity="end"
                     android:layout_marginTop="8dp"
                     android:text="BORRAR FIRMA"
-                    android:textColor="#D32F2F"
+                    android:textColor="?attr/colorError"
                     android:textSize="14sp"
                     app:icon="@android:drawable/ic_menu_revert"
-                    app:iconTint="#D32F2F" />
+                    app:iconTint="?attr/colorError" />
 
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
@@ -244,7 +245,10 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:visibility="visible"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_arrow_forward"
+                app:iconGravity="textEnd"
+                app:iconTint="@android:color/white" />
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

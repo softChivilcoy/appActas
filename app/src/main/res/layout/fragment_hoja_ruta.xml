@@ -38,9 +38,9 @@
             android:text="NUEVA ACTA"
             android:textSize="12sp"
             app:icon="@drawable/ic_add"
-            android:backgroundTint="#33BB66"
+            android:backgroundTint="?attr/colorPrimary"
             app:iconTint="@android:color/white"
-            android:textColor="@android:color/white"
+            android:textColor="?attr/colorOnPrimary"
             app:cornerRadius="8dp" />
     </RelativeLayout>
 

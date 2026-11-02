@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F7FA"
+    android:background="?android:attr/windowBackground"
     android:isScrollContainer="true"
     android:id="@+id/scrollConfiguracion"
     android:fillViewport="true">
@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:text="Configuración de Turno"
             android:textAlignment="center"
-            android:textColor="#1A237E"
+            android:textColor="?attr/colorPrimary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:text="Ingrese los datos del equipo asignado"
             android:textAlignment="center"
-            android:textColor="#546E7A"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="14sp"
             android:layout_marginBottom="24dp"/>
 
@@ -54,7 +54,7 @@
                 android:text="¿Se realizarán tests de alcoholemia?"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#1A237E" />
+                android:textColor="?attr/colorPrimary" />
 
             <TextView
                 android:id="@+id/tvEstadoAlco"
@@ -63,7 +63,7 @@
                 android:text="No"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#777777"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginEnd="8dp"/>
 
             <com.google.android.material.materialswitch.MaterialSwitch
@@ -79,7 +79,7 @@
             android:visibility="gone"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
-            app:strokeColor="#DEE2E6"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -93,12 +93,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Marca del Alcoholímetro"
+                    app:boxStrokeColor="@color/selector_box_stroke"
                     app:startIconDrawable="@android:drawable/ic_menu_info_details">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/etConfigMarca"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:dropDownHeight="200dp"
                         android:inputType="none" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -178,8 +180,12 @@
             android:text="CONFIRMAR Y EMPEZAR"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:backgroundTint="#33BB66"
-            app:cornerRadius="12dp" />
+            android:backgroundTint="?attr/colorPrimary"
+            android:textColor="?attr/colorOnPrimary"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_arrow_forward"
+            app:iconGravity="textEnd"
+            app:iconPadding="8dp" />
 
         <TextView
             android:layout_width="match_parent"
@@ -187,7 +193,7 @@
             android:layout_marginTop="16dp"
             android:text="* Estos datos aparecerán precargados en cada acta."
             android:textAlignment="center"
-            android:textColor="#90A4AE"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="12sp"
             android:textStyle="italic"/>
 

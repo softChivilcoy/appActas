@@ -573,11 +573,15 @@
             android:layout_width="0dp"
             android:layout_height="64dp"
             android:layout_weight="2"
-            android:backgroundTint="#2E7D32"
-            android:text="SIGUIENTE ⮕"
-            android:textColor="#FFFFFF"
+            android:backgroundTint="?attr/colorPrimary"
+            android:text="SIGUIENTE"
+            android:textColor="?attr/colorOnPrimary"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_arrow_forward"
+            app:iconGravity="textEnd"
+            app:iconPadding="8dp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

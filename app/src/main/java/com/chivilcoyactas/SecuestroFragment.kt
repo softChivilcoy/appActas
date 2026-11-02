@@ -285,62 +285,33 @@ class SecuestroFragment : Fragment() {
 
             "INTEGER", "NUMBER" -> {
                 val itemLayout = LinearLayout(requireContext()).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
+                    orientation = LinearLayout.VERTICAL
                     layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { setMargins(0, 4, 0, 8) }
-
-                    val tvLabel = TextView(requireContext()).apply {
-                        text = item.etiquetaVisible
-                        textSize = 14f
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-
-                    val etInput = EditText(requireContext()).apply {
-                        hint = "0"
-                        inputType = InputType.TYPE_CLASS_NUMBER
-                        setText(valorPrevio ?: "")
-                        textSize = 14f
-                        layoutParams = LinearLayout.LayoutParams(180, ViewGroup.LayoutParams.WRAP_CONTENT)
-                        setSelectAllOnFocus(true)
-                        isSingleLine = true
-                        imeOptions = EditorInfo.IME_ACTION_DONE
-
-                        setOnFocusChangeListener { v, hasFocus ->
-                            if (hasFocus) {
-                                ejecutarAutoScroll(v)
-                                v.setBackgroundResource(R.drawable.bg_edittext_focused)
-                            } else {
-                                v.setBackgroundResource(0)
-                            }
-                        }
-
-                        setOnEditorActionListener { _, actionId, _ ->
-                            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                                (activity as? MainActivity)?.hideKeyboard()
-                                clearFocus()
-                                true
-                            } else false
-                        }
-                    }
-
-                    addView(tvLabel)
-                    addView(etInput)
+                    ).apply { setMargins(0, 8, 0, 16) }
                 }
-                itemLayout
-            }
 
-            else -> { // TEXT LIBRE
-                EditText(requireContext()).apply {
-                    hint = item.etiquetaVisible
+                val tvTitulo = TextView(requireContext()).apply {
+                    text = item.etiquetaVisible
                     textSize = 14f
+                    setTypeface(null, Typeface.BOLD)
+                    val typedValue = android.util.TypedValue()
+                    context.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, typedValue, true)
+                    setTextColor(typedValue.data)
+                    setPadding(0, 4, 0, 4)
+                }
+                itemLayout.addView(tvTitulo)
+
+                val etInput = EditText(requireContext()).apply {
+                    hint = "0"
+                    inputType = InputType.TYPE_CLASS_NUMBER
                     setText(valorPrevio ?: "")
+                    textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { setMargins(0, 4, 0, 8) }
+                    )
                     setSelectAllOnFocus(true)
                     isSingleLine = true
                     imeOptions = EditorInfo.IME_ACTION_DONE
@@ -362,6 +333,61 @@ class SecuestroFragment : Fragment() {
                         } else false
                     }
                 }
+                itemLayout.addView(etInput)
+                itemLayout
+            }
+
+            else -> { // TEXT LIBRE
+                val itemLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(0, 8, 0, 16) }
+                }
+
+                val tvTitulo = TextView(requireContext()).apply {
+                    text = item.etiquetaVisible
+                    textSize = 14f
+                    setTypeface(null, Typeface.BOLD)
+                    val typedValue = android.util.TypedValue()
+                    context.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, typedValue, true)
+                    setTextColor(typedValue.data)
+                    setPadding(0, 4, 0, 4)
+                }
+                itemLayout.addView(tvTitulo)
+
+                val etInput = EditText(requireContext()).apply {
+                    hint = "Escriba aquí..."
+                    textSize = 14f
+                    setText(valorPrevio ?: "")
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    setSelectAllOnFocus(true)
+                    isSingleLine = true
+                    imeOptions = EditorInfo.IME_ACTION_DONE
+
+                    setOnFocusChangeListener { v, hasFocus ->
+                        if (hasFocus) {
+                            ejecutarAutoScroll(v)
+                            v.setBackgroundResource(R.drawable.bg_edittext_focused)
+                        } else {
+                            v.setBackgroundResource(0)
+                        }
+                    }
+
+                    setOnEditorActionListener { _, actionId, _ ->
+                        if (actionId == EditorInfo.IME_ACTION_DONE) {
+                            (activity as? MainActivity)?.hideKeyboard()
+                            clearFocus()
+                            true
+                        } else false
+                    }
+                }
+                itemLayout.addView(etInput)
+                itemLayout
             }
         }
     }

@@ -207,21 +207,25 @@ class ImpresoraTermica {
             if (qrBitmap != null) {
                 os.write(byteArrayOf(0x1B, 0x61, 0x01)) // Centrado
                 os.write(obtenerBytesDeBitmap(qrBitmap))
-                os.write("\n".toByteArray())
+                os.write(byteArrayOf(0x0A)) // Line Feed explícito tras imagen
             }
 
             // --- SELLO DIGITAL DEL INSPECTOR ---
-            os.write("\n".toByteArray())
             os.write(byteArrayOf(0x1B, 0x61, 0x01)) // Centrado
             
             // 1. Prioridad: Firma capturada en el acta actual
             var imprimioFirma = false
-            if (!acta.firmaInspectorPath.isNullOrEmpty()) {
+            /*if (!acta.firmaInspectorPath.isNullOrEmpty()) {
                 try {
                     val bitmapFirma = BitmapFactory.decodeFile(acta.firmaInspectorPath)
                     if (bitmapFirma != null) {
-                        os.write(obtenerBytesDeBitmap(bitmapFirma))
-                        os.write("\n".toByteArray())
+                        // Redimensionar para asegurar que quepa en el ancho de 58mm (aprox 384px)
+                        val scaledFirma = if (bitmapFirma.width > 384) {
+                            Bitmap.createScaledBitmap(bitmapFirma, 384, (bitmapFirma.height * (384.0 / bitmapFirma.width)).toInt(), true)
+                        } else bitmapFirma
+
+                        os.write(obtenerBytesDeBitmap(scaledFirma))
+                        os.write(byteArrayOf(0x0A))
                         imprimioFirma = true
                     }
                 } catch (e: Exception) {
@@ -238,14 +242,18 @@ class ImpresoraTermica {
                         val decodedBytes = android.util.Base64.decode(firmaBase64, android.util.Base64.DEFAULT)
                         val bitmapFirma = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
                         if (bitmapFirma != null) {
-                            os.write(obtenerBytesDeBitmap(bitmapFirma))
-                            os.write("\n".toByteArray())
+                            val scaledFirma = if (bitmapFirma.width > 384) {
+                                Bitmap.createScaledBitmap(bitmapFirma, 384, (bitmapFirma.height * (384.0 / bitmapFirma.width)).toInt(), true)
+                            } else bitmapFirma
+                            
+                            os.write(obtenerBytesDeBitmap(scaledFirma))
+                            os.write(byteArrayOf(0x0A))
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 }
-            }
+            }*/
 
             os.write(byteArrayOf(0x1B, 0x45, 0x01)) // Negrita ON
             os.write("FIRMADO DIGITALMENTE POR:\n".toByteArray())
@@ -267,6 +275,8 @@ class ImpresoraTermica {
             callback("Acta impresa con éxito")
         } catch (e: Exception) {
             callback("Error: ${e.message}")
+        } finally {
+            cerrar()
         }
     }
 

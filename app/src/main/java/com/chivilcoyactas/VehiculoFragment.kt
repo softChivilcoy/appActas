@@ -125,6 +125,11 @@ class VehiculoFragment : Fragment() {
             val seleccion = parent.getItemAtPosition(position).toString()
             actaViewModel.tipoVehiculo = seleccion
 
+            // 🚀 NUEVO: Buscar el ID real del tipo de vehículo seleccionado
+            val listaTipos = actaViewModel.todosLosTiposVehiculo.value
+            val objetoTipo = listaTipos?.find { it.nombre == seleccion }
+            actaViewModel.idTipoVehiculoSeleccionado = objetoTipo?.id
+
             val esMoto = seleccion.equals("MOTOCICLETA", ignoreCase = true) ||
                     seleccion.equals("CICLOMOTOR", ignoreCase = true)
 

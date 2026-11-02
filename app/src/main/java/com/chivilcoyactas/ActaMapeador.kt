@@ -73,7 +73,7 @@ object ActaMapeador {
                 niegaDatos = it.niegaDatos,
                 vinculoLugar = it.vinculoLugar,
                 nroLicencia = it.nroLicencia, // 🚀 AGREGADO
-                firmaPath = it.firmaPath,
+                firmaBase64 = it.firmaPath?.let { path -> convertirArchivoABase64(path) },
                 motivoNiega = it.motivoNiega
             )
         }
@@ -98,7 +98,7 @@ object ActaMapeador {
                 calleOriginal = it.calleOriginal,
                 alturaCalle = it.alturaCalle, // 🚀 NUEVO
                 cpOriginal = it.cpOriginal,
-                firmaPath = it.firmaPath
+                firmaBase64 = it.firmaPath?.let { path -> convertirArchivoABase64(path) }
             )
         }
 

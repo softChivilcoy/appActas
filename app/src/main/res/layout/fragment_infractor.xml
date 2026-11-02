@@ -153,9 +153,9 @@
                     android:id="@+id/etObservaciones"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:inputType="textCapWords|textNoSuggestions|textVisiblePassword"
                     android:gravity="top"
                     android:imeOptions="actionNext"
-                    android:lines="3"
                     android:singleLine="true"
                     android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -190,18 +190,23 @@
             android:text="VOLVER"
             android:textSize="14sp"
             app:icon="@drawable/ic_arrow_back_thin"
-            app:iconGravity="textStart" />
+            app:iconGravity="textStart"
+            app:cornerRadius="12dp" />
 
         <Button
             android:id="@+id/btnSiguiente"
             android:layout_width="0dp"
             android:layout_height="64dp"
             android:layout_weight="2"
-            android:backgroundTint="#2E7D32"
-            android:text="SIGUIENTE ⮕"
-            android:textColor="#FFFFFF"
+            android:backgroundTint="?attr/colorPrimary"
+            android:text="SIGUIENTE"
+            android:textColor="?attr/colorOnPrimary"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_arrow_forward"
+            app:iconGravity="textEnd"
+            app:iconPadding="8dp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

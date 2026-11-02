@@ -105,9 +105,13 @@
             android:layout_height="60dp"
             android:text="INGRESAR"
             android:textSize="16sp"
-            android:textStyle="bold"
+            android:letterSpacing="0.09"
             app:cornerRadius="12dp"
-            android:backgroundTint="#33BB66" />
+            android:backgroundTint="?attr/colorPrimary"
+            android:textColor="?attr/colorOnPrimary"
+            app:icon="@drawable/ic_arrow_forward"
+            app:iconGravity="textEnd"
+            app:iconPadding="8dp" />
 
         <Space
             android:layout_width="match_parent"

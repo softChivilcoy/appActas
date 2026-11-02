@@ -82,19 +82,13 @@ class TestigosFragment : Fragment() {
         val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
         val adapterCalles = crearAdapterLimitado(callesChivilcoy.toList())
 
-        binding.etTestigo1Calle.dropDownVerticalOffset = -20
-        binding.etTestigo2Calle.dropDownVerticalOffset = -20
-
-        val etDomicilio = binding.etTestigo1Calle as MaterialAutoCompleteTextView
-        etDomicilio.setAdapter(adapterCalles)
-
-        val etDomicilioDos = binding.etTestigo2Calle as MaterialAutoCompleteTextView
-        etDomicilioDos.setAdapter(adapterCalles)
+        binding.etTestigo1Calle.setAdapter(adapterCalles)
+        binding.etTestigo2Calle.setAdapter(adapterCalles)
 
         // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
         val dropDownHeight = (200 * resources.displayMetrics.density).toInt()
-        etDomicilio.dropDownHeight = dropDownHeight
-        etDomicilioDos.dropDownHeight = dropDownHeight
+        binding.etTestigo1Calle.dropDownHeight = dropDownHeight
+        binding.etTestigo2Calle.dropDownHeight = dropDownHeight
         binding.autoCompleteTestigo1Pais.dropDownHeight = dropDownHeight
         binding.autoCompleteTestigo2Pais.dropDownHeight = dropDownHeight
         binding.autoCompleteTestigo1Provincia.dropDownHeight = dropDownHeight
@@ -102,27 +96,23 @@ class TestigosFragment : Fragment() {
         binding.autoCompleteTestigo1Localidad.dropDownHeight = dropDownHeight
         binding.autoCompleteTestigo2Localidad.dropDownHeight = dropDownHeight
 
-        // 2. FORZAR que sea editable y muestre el teclado normalmente
-        etDomicilio.keyListener = android.text.method.TextKeyListener.getInstance()
-        etDomicilioDos.keyListener = android.text.method.TextKeyListener.getInstance()
+        // Sugerir a partir de la primera letra tipeada
+        binding.etTestigo1Calle.threshold = 1
+        binding.etTestigo2Calle.threshold = 1
 
-        // 3. Sugerir a partir de la primera letra tipeada
-        etDomicilio.threshold = 1
-        etDomicilioDos.threshold = 1
-
-        // 4. Si toca la flechita del desplegable, mostrar todas las sugerencias
-        etDomicilio.setOnClickListener {
-            etDomicilio.showDropDown()
+        // 4. Si toca el campo, mostrar todas las sugerencias
+        binding.etTestigo1Calle.setOnClickListener {
+            binding.etTestigo1Calle.showDropDown()
         }
-        etDomicilioDos.setOnClickListener {
-            etDomicilioDos.showDropDown()
+        binding.etTestigo2Calle.setOnClickListener {
+            binding.etTestigo2Calle.showDropDown()
         }
 
-        etDomicilio.setOnItemClickListener { _, _, _, _ ->
+        binding.etTestigo1Calle.setOnItemClickListener { _, _, _, _ ->
             binding.etTestigo1CalleNro.requestFocus()
         }
 
-        etDomicilioDos.setOnItemClickListener { _, _, _, _ ->
+        binding.etTestigo2Calle.setOnItemClickListener { _, _, _, _ ->
             binding.etTestigo2CalleNro.requestFocus()
         }
 
@@ -132,12 +122,14 @@ class TestigosFragment : Fragment() {
                 binding.cardTestigo1.visibility = View.VISIBLE
                 binding.btnEscanearDniTestigo.visibility = View.VISIBLE
                 binding.etTestigo1Dni.requestFocus()
+                (activity as? MainActivity)?.mostrarTeclado(binding.etTestigo1Dni)
                 testigoActualEscaneando = 1
             } else if (binding.cardTestigo2.visibility == View.GONE) {
                 binding.cardTestigo2.visibility = View.VISIBLE
                 testigoActualEscaneando = 2
                 binding.btnAgregarTestigo.visibility = View.GONE
                 binding.etTestigo2Dni.requestFocus()
+                (activity as? MainActivity)?.mostrarTeclado(binding.etTestigo2Dni)
             }
         }
 
@@ -295,43 +287,6 @@ class TestigosFragment : Fragment() {
             // 🚀 AHORA SÍ: Como la lista de provincias ya existe en memoria,
             // cargamos las localidades para la provincia seleccionada (Buenos Aires por defecto)
             cargarLocalidadesPorProvinciaNombre(provActual)
-        }
-
-
-        // =========================================================
-        // 🔄 HELPER PARA CONFIGURAR LOCALIDADES
-        // =========================================================
-        fun configurarAutoCompleteLocalidad(
-            autoCompleteView: MaterialAutoCompleteTextView,
-            nombresLocalidades: List<String>
-        ) {
-            val autoFilterUpper = InputFilter.AllCaps()
-            val adapterLocalidad = crearAdapterLimitado(nombresLocalidades)
-
-            autoCompleteView.setAdapter(adapterLocalidad)
-            autoCompleteView.threshold = 1
-            
-            // Habilitar escritura manual (editable) y forzar mayúsculas
-            autoCompleteView.keyListener = android.text.method.TextKeyListener.getInstance()
-            autoCompleteView.filters = arrayOf(autoFilterUpper)
-
-            // Forzar que despliegue la lista al hacer clic o ganar foco
-            autoCompleteView.setOnClickListener {
-                autoCompleteView.showDropDown()
-            }
-            
-            autoCompleteView.setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) {
-                    autoCompleteView.showDropDown()
-                    if (autoCompleteView.text.isNotEmpty()) {
-                        autoCompleteView.post { autoCompleteView.selectAll() }
-                    }
-                    ejecutarAutoScroll(v)
-                    v.setBackgroundResource(R.drawable.bg_edittext_focused)
-                } else {
-                    v.setBackgroundResource(0)
-                }
-            }
         }
 
         // --- LÓGICA TESTIGO 1 ---
@@ -628,15 +583,14 @@ class TestigosFragment : Fragment() {
 
     private fun setupFocusListeners() {
         // AutoCompleteTextViews
+        // Nota: Localidad se maneja por separado vía configurarAutoCompleteLocalidad para validación dinámica
         val combos = listOf(
             binding.etTestigo1Calle,
             binding.autoCompleteTestigo1Pais,
             binding.autoCompleteTestigo1Provincia,
-            binding.autoCompleteTestigo1Localidad,
             binding.etTestigo2Calle,
             binding.autoCompleteTestigo2Pais,
-            binding.autoCompleteTestigo2Provincia,
-            binding.autoCompleteTestigo2Localidad
+            binding.autoCompleteTestigo2Provincia
         )
         combos.forEach { combo ->
             combo.setOnFocusChangeListener { v, hasFocus ->
@@ -654,6 +608,16 @@ class TestigosFragment : Fragment() {
                     v.setBackgroundResource(R.drawable.bg_edittext_focused)
                 } else {
                     v.setBackgroundResource(0)
+                    
+                    // Solo normalizamos a mayúsculas si el usuario escribió algo,
+                    // pero permitimos que mantenga su entrada manual aunque no esté en el catálogo.
+                    if (v.id == R.id.etTestigo1Calle || v.id == R.id.etTestigo2Calle) {
+                        val et = v as android.widget.AutoCompleteTextView
+                        val texto = et.text.toString().trim().uppercase()
+                        if (texto.isNotEmpty()) {
+                            et.setText(texto)
+                        }
+                    }
                 }
             }
             combo.setOnClickListener {
@@ -743,11 +707,51 @@ class TestigosFragment : Fragment() {
                 .obtenerLocalidadesPorProvincia(provinciaId)
 
             val nombresLocalidades = localidadesFiltradas.map { it.nombre.uppercase() }
-            val adapterLocalidad = crearAdapterLimitado(nombresLocalidades)
-            binding.autoCompleteTestigo1Localidad.setAdapter(adapterLocalidad)
-            binding.autoCompleteTestigo1Localidad.threshold = 1
-            binding.autoCompleteTestigo2Localidad.setAdapter(adapterLocalidad)
-            binding.autoCompleteTestigo2Localidad.threshold = 1
+            
+            configurarAutoCompleteLocalidad(binding.autoCompleteTestigo1Localidad, nombresLocalidades)
+            configurarAutoCompleteLocalidad(binding.autoCompleteTestigo2Localidad, nombresLocalidades)
+        }
+    }
+
+    // =========================================================
+    // 🔄 HELPER PARA CONFIGURAR LOCALIDADES CON VALIDACIÓN
+    // =========================================================
+    private fun configurarAutoCompleteLocalidad(
+        autoCompleteView: MaterialAutoCompleteTextView,
+        nombresLocalidades: List<String>
+    ) {
+        val autoFilterUpper = InputFilter.AllCaps()
+        val adapterLocalidad = crearAdapterLimitado(nombresLocalidades)
+
+        autoCompleteView.setAdapter(adapterLocalidad)
+        autoCompleteView.threshold = 1
+
+        // Habilitar escritura manual (editable) y forzar mayúsculas
+        autoCompleteView.keyListener = android.text.method.TextKeyListener.getInstance()
+        autoCompleteView.filters = arrayOf(autoFilterUpper)
+
+        // Forzar que despliegue la lista al hacer clic o ganar foco
+        autoCompleteView.setOnClickListener {
+            autoCompleteView.showDropDown()
+        }
+
+        autoCompleteView.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                autoCompleteView.showDropDown()
+                if (autoCompleteView.text.isNotEmpty()) {
+                    autoCompleteView.post { autoCompleteView.selectAll() }
+                }
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+
+                // Solo normalizamos a mayúsculas, permitiendo entrada manual.
+                val textoIngresado = autoCompleteView.text.toString().trim().uppercase()
+                if (textoIngresado.isNotEmpty()) {
+                    autoCompleteView.setText(textoIngresado)
+                }
+            }
         }
     }
     private fun recuperarDatosDeCaja() {

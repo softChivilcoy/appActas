@@ -56,6 +56,9 @@ class MainActivity : AppCompatActivity() {
 
         // Lógica de visibilidad del Header y Progreso
         navController.addOnDestinationChangedListener { _, destination, _ ->
+            // Cerramos el teclado automáticamente al cambiar de pantalla
+            hideKeyboard()
+
             when (destination.id) {
                 R.id.loginFragment -> {
                     // En el login ocultamos todo
