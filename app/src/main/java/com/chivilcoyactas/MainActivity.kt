@@ -56,16 +56,25 @@ class MainActivity : AppCompatActivity() {
 
         // Lógica de visibilidad del Header y Progreso
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            if (destination.id == R.id.loginFragment) {
-                // En el login ocultamos todo
-                binding.headerInspector.visibility = View.GONE
-                binding.progressBar.visibility = View.GONE
-                binding.tvProgreso.visibility = View.GONE
-            } else {
-                // En los pasos del acta mostramos todo
-                binding.headerInspector.visibility = View.VISIBLE
-                binding.progressBar.visibility = View.VISIBLE
-                binding.tvProgreso.visibility = View.VISIBLE
+            when (destination.id) {
+                R.id.loginFragment -> {
+                    // En el login ocultamos todo
+                    binding.headerInspector.visibility = View.GONE
+                    binding.progressBar.visibility = View.GONE
+                    binding.tvProgreso.visibility = View.GONE
+                }
+                R.id.hojaRutaFragment -> {
+                    // En la hoja de ruta mostramos el header pero no el progreso (es un paso 0)
+                    binding.headerInspector.visibility = View.VISIBLE
+                    binding.progressBar.visibility = View.GONE
+                    binding.tvProgreso.visibility = View.GONE
+                }
+                else -> {
+                    // En los pasos del acta mostramos todo
+                    binding.headerInspector.visibility = View.VISIBLE
+                    binding.progressBar.visibility = View.VISIBLE
+                    binding.tvProgreso.visibility = View.VISIBLE
+                }
             }
         }
 

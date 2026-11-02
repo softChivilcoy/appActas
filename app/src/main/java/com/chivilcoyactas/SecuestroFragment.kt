@@ -44,6 +44,9 @@ class SecuestroFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Foco inicial en el contenedor raíz para hardware 3nStar
+        binding.rootSecuestro.requestFocus()
+
         // Reinicio de scroll al entrar
         binding.scrollSecuestro.post {
             binding.scrollSecuestro.scrollTo(0, 0)
@@ -185,7 +188,10 @@ class SecuestroFragment : Fragment() {
                     text = item.etiquetaVisible
                     textSize = 14f
                     setTypeface(null, Typeface.BOLD)
-                    setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    // Obtenemos el color onSurface del tema actual
+                    val typedValue = android.util.TypedValue()
+                    context.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, typedValue, true)
+                    setTextColor(typedValue.data)
                     setPadding(0, 4, 0, 8)
                 }
                 itemLayout.addView(tvTitulo)
@@ -233,7 +239,13 @@ class SecuestroFragment : Fragment() {
                             isChecked = true
                         }
 
+                        // Feedback visual inicial
+                        if (isChecked) {
+                            actualizarEstiloItem(itemLayout, text.toString())
+                        }
+
                         setOnClickListener {
+                            actualizarEstiloItem(itemLayout, text.toString())
                             ejecutarAutoScroll(itemLayout)
                         }
                     }
@@ -368,6 +380,22 @@ class SecuestroFragment : Fragment() {
             val targetY = rect.top - offsetTop
             binding.scrollSecuestro.smoothScrollTo(0, targetY.coerceAtLeast(0))
         }, 500)
+    }
+
+    private fun actualizarEstiloItem(container: LinearLayout, estado: String) {
+        val isDarkMode = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        when {
+            estado.equals("Malo", ignoreCase = true) || estado.equals("M", ignoreCase = true) -> {
+                container.setBackgroundColor(if (isDarkMode) android.graphics.Color.parseColor("#442020") else android.graphics.Color.parseColor("#FFF1F1"))
+            }
+            estado.equals("Bueno", ignoreCase = true) || estado.equals("B", ignoreCase = true) -> {
+                container.setBackgroundColor(if (isDarkMode) android.graphics.Color.parseColor("#203320") else android.graphics.Color.parseColor("#F1FFF1"))
+            }
+            else -> {
+                container.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        }
     }
 
     private fun guardarInventarioDinamico() {

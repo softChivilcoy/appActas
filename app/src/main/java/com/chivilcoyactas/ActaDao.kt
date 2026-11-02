@@ -53,7 +53,7 @@ interface ActaDao {
     // --- CONSULTAS ---
 
     @Transaction
-    @Query("SELECT * FROM actas ORDER BY idLocal DESC")
+    @Query("SELECT * FROM actas ORDER BY fecha DESC, hora DESC")
     suspend fun obtenerTodasLasActas(): List<ActaCompleta>
 
     @Transaction
@@ -61,7 +61,7 @@ interface ActaDao {
     suspend fun obtenerActaPorId(id: Long): ActaCompleta?
 
     @Transaction
-    @Query("SELECT * FROM actas WHERE estadoEnvio = 'PENDIENTE'")
+    @Query("SELECT * FROM actas WHERE estadoEnvio IN ('PENDIENTE', 'ENVIADA', 'BORRADOR')")
     suspend fun obtenerActasPendientes(): List<ActaCompleta>
 
     @Transaction
@@ -78,6 +78,12 @@ interface ActaDao {
 
     @Query("UPDATE actas SET estadoEnvio = :nuevoEstado, idServer = :idServer WHERE idLocal = :idLocal")
     suspend fun actualizarEstadoEnvio(idLocal: Long, nuevoEstado: String, idServer: Long?)
+
+    @Query("SELECT idLocal FROM actas WHERE idServer = :idServer LIMIT 1")
+    suspend fun buscarIdLocalPorServer(idServer: Int): Long?
+
+    @Query("DELETE FROM actas WHERE idServer = :idServer")
+    suspend fun eliminarPorIdServer(idServer: Int)
 
     // --- ELIMINACIÓN ---
 
@@ -119,6 +125,16 @@ interface ActaDao {
 
     @Query("DELETE FROM actas WHERE idLocal = :idLocal")
     suspend fun eliminarActaLocalCompleta(idLocal: Long)
+
+    // 🚀 ACTUALIZACIONES PARA LAZY LOADING
+    @Query("UPDATE acta_media SET rutaArchivo = :rutaLocal WHERE id = :idMedia")
+    suspend fun actualizarRutaLocalMedia(idMedia: Long, rutaLocal: String)
+
+    @Query("UPDATE acta_infractor SET firmaPath = :rutaLocal WHERE id = :idInfractor")
+    suspend fun actualizarRutaFirmaInfractor(idInfractor: Long, rutaLocal: String)
+
+    @Query("UPDATE acta_testigos SET firmaPath = :rutaLocal WHERE id = :idTestigo")
+    suspend fun actualizarRutaFirmaTestigo(idTestigo: Long, rutaLocal: String)
 
     // 🚀 Transacción para guardar/actualizar la sección de inspección completa
     @Transaction

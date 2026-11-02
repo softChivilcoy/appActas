@@ -14,6 +14,12 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.chivilcoyactas.databinding.FragmentHojaRutaBinding
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.MotionEvent
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,12 +45,58 @@ class HojaRutaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Foco inicial en el contenedor raíz para hardware 3nStar
+        binding.rootHojaRuta.requestFocus()
+
         binding.rvHojaRuta.layoutManager = LinearLayoutManager(requireContext())
 
         // Configurar el gesto de deslizar para borrar (Swipe to Delete)
         configurarSwipeParaEliminar()
 
         cargarItemsHojaRuta()
+
+        // 🔍 Configurar el filtro de búsqueda
+        binding.etBuscar.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                adapter?.filtrar(s.toString())
+                // 🚀 Actualizar visibilidad si el filtro no devuelve nada
+                actualizarVisibilidadEstado(adapter?.itemCount == 0)
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // 🎹 Ocultar teclado al presionar "Buscar", "Enter" o "Hecho"
+        binding.etBuscar.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || 
+                actionId == EditorInfo.IME_ACTION_DONE || 
+                actionId == EditorInfo.IME_ACTION_GO) {
+                ocultarTeclado()
+                true
+            } else {
+                false
+            }
+        }
+
+        // 🖐️ Interceptamos el toque en la lista ANTES de que llegue a la tarjeta
+        binding.rvHojaRuta.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // Si el usuario presiona o mueve el dedo en la lista, bajamos el teclado
+                if (e.action == MotionEvent.ACTION_DOWN || e.action == MotionEvent.ACTION_MOVE) {
+                    ocultarTeclado()
+                }
+                return false // Permitimos que el toque siga su curso hacia la tarjeta o el scroll
+            }
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {}
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
+        })
+
+        // 📜 Refuerzo para cuando el scroll ya está en movimiento
+        binding.rvHojaRuta.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy != 0) ocultarTeclado()
+            }
+        })
 
         binding.btnNuevaActa.setOnClickListener {
             actaViewModel.resetearActa()
@@ -56,18 +108,32 @@ class HojaRutaFragment : Fragment() {
     private fun cargarItemsHojaRuta() {
         lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(requireContext())
-            val borradores = db.actaDao().obtenerActasPorEstado("BORRADOR")
+            // Obtenemos ActaCompleta para tener acceso a los infractores y buscar por nombre
+            val allActas = db.actaDao().obtenerTodasLasActas()
+            val borradores = allActas.filter { it.acta.estadoEnvio == "BORRADOR" }
 
             listaBorradores.clear()
-            listaBorradores.addAll(borradores.map { acta ->
+            listaBorradores.addAll(borradores.map { completa ->
+                val acta = completa.acta
+                val primerInfractor = completa.infractores.firstOrNull()?.nombreCompleto ?: ""
+                
+                // Formatear fecha de yyyy-MM-dd a dd/MM/yyyy
+                val fechaDisplay = try {
+                    val partes = acta.fecha.split("-")
+                    if (partes.size == 3) "${partes[2]}/${partes[1]}/${partes[0]}" else acta.fecha
+                } catch (e: Exception) {
+                    acta.fecha
+                }
+
                 ItemHojaRuta(
                     id = acta.idLocal,
                     titulo = "BORRADOR #${acta.idLocal}",
+                    nroActa = acta.nroActa,
                     calle = acta.nombreCalle ?: "SIN CALLE",
                     altura = acta.alturaCalle?.toString() ?: "",
                     motivo = "Acta pendiente de finalización",
-                    infractorNombre = "",
-                    fecha = "${acta.fecha} ${acta.hora}",
+                    infractorNombre = primerInfractor,
+                    fecha = "$fechaDisplay ${acta.hora}",
                     estadoTexto = "BORRADOR",
                     origen = TipoOrigenItem.BORRADOR_LOCAL,
                     actaEntity = acta
@@ -149,12 +215,24 @@ class HojaRutaFragment : Fragment() {
         }
     }
 
+    private fun ocultarTeclado() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        // Forzamos el cierre usando el token de la ventana actual, sin importar qué tenga el foco
+        val view = activity?.currentFocus ?: binding.root
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
+        
+        if (binding.etBuscar.hasFocus()) {
+            binding.etBuscar.clearFocus()
+        }
+    }
+
     private fun procesarSeleccion(item: ItemHojaRuta) {
         lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(requireContext())
             val actaCompleta = db.actaDao().obtenerActaCompleta(item.id)
 
             withContext(Dispatchers.Main) {
+                // 1. Resetear el ViewModel PRIMERO para evitar limpiar datos que se carguen asíncronamente
                 actaViewModel.resetearActa()
 
                 if (actaCompleta != null) {
@@ -162,11 +240,18 @@ class HojaRutaFragment : Fragment() {
 
                     // --- 1. CABECERA Y UBICACIÓN ---
                     actaViewModel.idActaLocal = cabecera.idLocal
+                    actaViewModel.idServer = cabecera.idServer // 🚀 Agregado: Recuperar ID del servidor
+
+                    // 2. Iniciar descarga de archivos si faltan (Ahora con idActaLocal seteado para que el ViewModel actualice su estado en vivo)
+                    actaViewModel.descargarArchivosSiFaltan(item.id)
+
                     actaViewModel.esNuevaActa = false
                     actaViewModel.secuenciaActual = cabecera.secuencia
                     actaViewModel.serie = cabecera.serie
                     actaViewModel.anio = cabecera.anio
                     actaViewModel.puntoEmisionId = cabecera.puntoEmisionId
+                    actaViewModel.idReparticionSeleccionada = cabecera.idReparticion // 🚀 Crucial para catálogos
+                    actaViewModel.idTipoActaSeleccionada = cabecera.tipoActa
 
                     actaViewModel.tipoFormulario = if (actaCompleta.vehiculo != null) TipoFormulario.TRANSITO else TipoFormulario.INSPECCION
                     actaViewModel.calle = cabecera.nombreCalle
@@ -242,6 +327,7 @@ class HojaRutaFragment : Fragment() {
                     actaViewModel.categoriasSeleccionadas.clear()
 
                     // 🚀 LEER LA CATEGORÍA REAL DESDE LA CABECERA (procTipoInmueble)
+                    actaViewModel.procTipoInmueble = cabecera.procTipoInmueble ?: ""
                     cabecera.procTipoInmueble?.let { categorias ->
                         if (categorias.isNotBlank()) {
                             // Soporta una sola categoría o varias separadas por coma
@@ -276,7 +362,8 @@ class HojaRutaFragment : Fragment() {
                         actaViewModel.catManzanaLet = cat.ctMzLet ?: ""
                         actaViewModel.catParcelaNro = cat.ctParcNro ?: ""
                         actaViewModel.catParcelaLet = cat.ctParcLet ?: ""
-                        actaViewModel.catSubparcela = cat.ctSubParc ?: ""
+                        actaViewModel.catSubparcelaNro = cat.ctSubParc ?: ""
+                        actaViewModel.catSubparcelaLet = ""
                         actaViewModel.catUF = cat.ctUf ?: ""
                         actaViewModel.catPartidaMunicipal = cat.partidaMunicipal ?: ""
                     }

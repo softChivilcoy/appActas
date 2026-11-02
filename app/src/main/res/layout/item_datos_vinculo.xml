@@ -4,10 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="16dp"
-    app:cardBackgroundColor="#FFFFFF"
+    app:cardBackgroundColor="?attr/colorSurface"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
-    app:strokeColor="#DDDDDD"
+    app:strokeColor="?attr/colorOutlineVariant"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -21,7 +21,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="DATOS DEL PROPIETARIO"
-            android:textColor="@color/primary_chivilcoy"
+            android:textColor="?attr/colorPrimary"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_marginBottom="12dp" />
@@ -53,22 +53,25 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textCapWords|textNoSuggestions|textVisiblePassword"
-                android:singleLine="true" />
+                android:singleLine="true"
+                android:selectAllOnFocus="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Nro DNI -->
+        <!-- Nro DNI (Opcional) -->
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="N° Documento"
-            android:layout_marginBottom="16dp">
+            android:hint="N° Documento (Opcional)"
+            android:layout_marginBottom="16dp"
+            app:errorEnabled="false">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDni"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="number"
-                android:singleLine="true" />
+                android:singleLine="true"
+                android:selectAllOnFocus="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- SECCIÓN LICENCIA -->
@@ -77,10 +80,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="#F8F9FA"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:strokeColor="#DDDDDD"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -133,7 +136,8 @@
                 android:id="@+id/etLicencia"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number" />
+                android:inputType="number"
+                android:selectAllOnFocus="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- DOMICILIO -->
@@ -164,7 +168,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:completionThreshold="1"
-                    android:dropDownHeight="220dp"
+                    android:dropDownHeight="wrap_content"
                     android:inputType="textCapCharacters"
                     android:imeOptions="actionNext"
                     android:nextFocusDown="@id/etCalleNro"
@@ -184,7 +188,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
-                    android:singleLine="true" />
+                    android:singleLine="true"
+                    android:selectAllOnFocus="true" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
@@ -225,6 +230,25 @@
             android:orientation="vertical"
             android:visibility="gone"
             android:layout_marginTop="8dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="País"
+                android:layout_marginBottom="8dp">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompletePais"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters|textNoSuggestions"
+                    android:text="ARGENTINA"
+                    android:dropDownHeight="wrap_content"
+                    android:singleLine="true"
+                    android:selectAllOnFocus="true"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
@@ -236,9 +260,11 @@
                     android:id="@+id/autoCompleteProvincia"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                    android:inputType="textCapCharacters|textNoSuggestions"
                     android:text="BUENOS AIRES"
-                    android:singleLine="true"/>
+                    android:dropDownHeight="wrap_content"
+                    android:singleLine="true"
+                    android:selectAllOnFocus="true"/>
             </com.google.android.material.textfield.TextInputLayout>
 
             <LinearLayout
@@ -258,9 +284,11 @@
                         android:id="@+id/autoCompleteLocalidad"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                        android:inputType="textCapCharacters|textNoSuggestions"
                         android:text="CHIVILCOY"
-                        android:singleLine="true" />
+                        android:dropDownHeight="wrap_content"
+                        android:singleLine="true"
+                        android:selectAllOnFocus="true" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -274,7 +302,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="6620"
-                        android:inputType="number" />
+                        android:inputType="number"
+                        android:selectAllOnFocus="true" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
         </LinearLayout>
@@ -287,10 +316,10 @@
             android:layout_gravity="end"
             android:layout_marginTop="8dp"
             android:text="VOLVER A VÍNCULOS"
-            android:textColor="@color/primary_chivilcoy"
+            android:textColor="?attr/colorPrimary"
             android:visibility="gone"
             app:icon="@android:drawable/ic_menu_upload"
             app:iconGravity="textStart"
-            app:iconTint="@color/primary_chivilcoy" />
+            app:iconTint="?attr/colorPrimary" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

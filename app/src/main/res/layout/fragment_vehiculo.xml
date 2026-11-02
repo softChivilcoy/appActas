@@ -1,321 +1,341 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootVehiculo"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="12dp"
-    android:paddingBottom="16dp"
-    android:clipToPadding="false"
-    android:fillViewport="true"
-    android:isScrollContainer="true"
-    android:id="@+id/scrollVehiculo">
+    android:background="?android:attr/windowBackground"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:clickable="true">
 
-
-    <LinearLayout
-        android:id="@+id/contenedorPrincipal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:focusable="true"
-        android:focusableInTouchMode="true">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🚗 DATOS DEL VEHÍCULO"
-            android:textColor="#33BB66"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:layout_marginBottom="16dp"/>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/inputLayoutTipoVehiculo"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Tipo de Vehículo"
-            android:layout_marginBottom="16dp">
-
-            <AutoCompleteTextView
-                android:id="@+id/autoCompleteTipoVehiculo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text=""
-                android:inputType="none"
-                android:focusable="true"
-                android:clickable="true"
-                android:cursorVisible="false" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- SECCIÓN FORMATO DE PATENTE EN CHIPS -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardFormatoPatente"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="#F8F9FA"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#DDDDDD"
-            app:strokeWidth="1dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginBottom="6dp"
-                    android:text="Formato de Patente"
-                    android:textColor="#33BB66"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/cgFormatoPatente"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    app:chipSpacingHorizontal="12dp"
-                    app:chipSpacingVertical="0dp"
-                    app:singleSelection="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipPatenteVieja"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="false"
-                        android:text="Vieja (ABC123)"
-                        android:textAlignment="center"
-                        app:chipIconVisible="false" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipPatenteNueva"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="false"
-                        android:text="Nueva (AA123BB)"
-                        android:textAlignment="center"
-                        app:chipIconVisible="false" />
-
-                </com.google.android.material.chip.ChipGroup>
-
-                <TextView
-                    android:id="@+id/tvErrorPatente"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="4dp"
-                    android:text="Debe seleccionar un formato de patente"
-                    android:textColor="#D32F2F"
-                    android:textSize="11sp"
-                    android:visibility="gone" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputDominio"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Dominio (Patente)">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etDominio"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
-                    android:importantForAutofill="no"
-                    android:imeOptions="actionNext"
-                    android:singleLine="true"
-                    android:maxLength="7"
-                    android:textAllCaps="true"
-                    android:typeface="monospace"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:nextFocusForward="@id/autoCompleteMarca"
-                    android:nextFocusDown="@id/autoCompleteMarca"
-                    android:selectAllOnFocus="true"
-                    android:enabled="false"/>
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <View
-                android:id="@+id/viewPatenteOverlay"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="@android:color/transparent" />
-        </FrameLayout>
+    <ScrollView
+        android:id="@+id/scrollVehiculo"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:padding="12dp"
+        app:layout_constraintBottom_toTopOf="@+id/bottomContainerVehiculo"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:baselineAligned="false">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputMarca"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Marca"
-                android:layout_marginEnd="4dp">
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/autoCompleteMarca"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
-                    android:importantForAutofill="no"
-                    android:dropDownHeight="220dp"
-                    android:imeOptions="actionNext"
-                    android:singleLine="true"/>
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputModelo"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Modelo">
-
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/autoCompleteModelo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
-                    android:importantForAutofill="no"
-                    android:dropDownHeight="220dp"
-                    android:imeOptions="actionDone"
-                    android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#F5F5F5"
-            app:strokeColor="#E0E0E0"
-            app:strokeWidth="1dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp">
-            <CheckBox
-                android:id="@+id/checkEsPropietario"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp"
-                android:text="El infractor es el propietario"
-                android:textSize="14sp" />
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Panel Dinámico: Solo se ve si NO es el propietario -->
-        <LinearLayout
-            android:id="@+id/layoutDatosPropietario"
+            android:id="@+id/contenedorPrincipal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone"
-            android:padding="8dp"
-            android:background="#FAFAFA">
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:paddingBottom="24dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="DATOS DEL DUEÑO DEL VEHÍCULO"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp"
-                android:textColor="#33BB66"/>
+                android:layout_marginBottom="16dp"
+                android:text="🚗 DATOS DEL VEHÍCULO"
+                android:textColor="#2E7D32"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputNombrePropietario"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:id="@+id/inputLayoutTipoVehiculo"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Nombre y Apellido del Dueño"
-                android:layout_marginBottom="8dp">
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etNombrePropietario"
+                android:layout_marginBottom="16dp"
+                android:hint="Tipo de Vehículo"
+                app:boxStrokeColor="#2E7D32"
+                app:hintTextColor="#2E7D32">
+
+                <AutoCompleteTextView
+                    android:id="@+id/autoCompleteTipoVehiculo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPersonName|textCapWords|textNoSuggestions|textVisiblePassword" />
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:focusable="true"
+                    android:inputType="none"
+                    android:textColor="#000000"
+                    android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputDniPropietario"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardFormatoPatente"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="DNI del Dueño">
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etDniPropietario"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="number" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:orientation="vertical"
+                    android:padding="12dp">
 
-            <!-- Podes agregar Localidad/Calle si lo ves necesario,
-                 pero con Nombre y DNI suele bastar para el sistema -->
-        </LinearLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginBottom="8dp"
+                        android:text="FORMATO DE PATENTE"
+                        android:textColor="#2E7D32"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
-       <!-- <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Se procede a:"
-            android:layout_marginBottom="16dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etProcedimiento"
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/cgFormatoPatente"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        app:chipSpacingHorizontal="16dp"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipPatenteVieja"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ABC 123"
+                            android:textSize="14sp"
+                            app:chipIconVisible="false" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipPatenteNueva"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="AA 123 BB"
+                            android:textSize="14sp"
+                            app:chipIconVisible="false" />
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <TextView
+                        android:id="@+id/tvErrorPatente"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="8dp"
+                        android:text="⚠️ Seleccione el formato de la patente"
+                        android:textColor="#D32F2F"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:lines="3"
-                android:gravity="top"
-                android:inputType="textMultiLine"
-                android:imeOptions="actionNext"/>
-        </com.google.android.material.textfield.TextInputLayout>-->
+                android:layout_marginBottom="16dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp"
-            android:weightSum="3">
-            <Button
-                android:id="@+id/btnVolverVehiculo"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="0dp"
-                android:layout_height="60dp"
-                android:layout_weight="1"
-                android:text="VOLVER"
-                app:icon="@drawable/ic_arrow_back_thin"
-                app:iconGravity="textStart"
-                android:layout_marginEnd="8dp"/>
-            <Button
-                android:id="@+id/btnSiguienteVehiculo"
-                android:layout_width="0dp"
-                android:layout_height="60dp"
-                android:layout_weight="2"
-                android:text="SIGUIENTE:  ⮕"
-                android:backgroundTint="#33BB66"/>
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputDominio"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="DOMINIO / PATENTE"
+                    app:boxStrokeColor="#2E7D32"
+                    app:hintTextColor="#2E7D32">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDominio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:enabled="false"
+                        android:imeOptions="actionNext"
+                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                        android:maxLength="7"
+                        android:selectAllOnFocus="true"
+                        android:singleLine="true"
+                        android:textAllCaps="true"
+                        android:textColor="#000000"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:typeface="monospace" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View
+                    android:id="@+id/viewPatenteOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputMarca"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:hint="Marca"
+                    app:boxStrokeColor="#2E7D32"
+                    app:hintTextColor="#2E7D32">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/autoCompleteMarca"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:dropDownHeight="wrap_content"
+                        android:imeOptions="actionNext"
+                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                        android:singleLine="true"
+                        android:textColor="#000000"
+                        android:textSize="16sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputModelo"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Modelo"
+                    app:boxStrokeColor="#2E7D32"
+                    app:hintTextColor="#2E7D32">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/autoCompleteModelo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:dropDownHeight="wrap_content"
+                        android:imeOptions="actionDone"
+                        android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                        android:singleLine="true"
+                        android:textColor="#000000"
+                        android:textSize="16sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:strokeWidth="1dp">
+
+                <CheckBox
+                    android:id="@+id/checkEsPropietario"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="12dp"
+                    android:text="EL INFRACTOR ES EL PROPIETARIO"
+                    android:textColor="#000000"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:id="@+id/layoutDatosPropietario"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/colorSurfaceVariant"
+                android:orientation="vertical"
+                android:padding="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="DATOS DEL DUEÑO DEL VEHÍCULO"
+                    android:textColor="#2E7D32"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputNombrePropietario"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:hint="Nombre y Apellido del Dueño"
+                    app:boxStrokeColor="#2E7D32"
+                    app:hintTextColor="#2E7D32">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNombrePropietario"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPersonName|textCapWords|textNoSuggestions|textVisiblePassword"
+                        android:textColor="#000000" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputDniPropietario"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="DNI del Dueño"
+                    app:boxStrokeColor="#2E7D32"
+                    app:hintTextColor="#2E7D32">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDniPropietario"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:textColor="#000000" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="80dp" />
         </LinearLayout>
+    </ScrollView>
 
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="250dp" />
+    <LinearLayout
+        android:id="@+id/bottomContainerVehiculo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/windowBackground"
+        android:elevation="16dp"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:weightSum="3"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/btnVolverVehiculo"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="VOLVER"
+            android:textSize="14sp"
+            app:icon="@drawable/ic_arrow_back_thin"
+            app:iconGravity="textStart" />
+
+        <Button
+            android:id="@+id/btnSiguienteVehiculo"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_weight="2"
+            android:backgroundTint="#2E7D32"
+            android:text="SIGUIENTE ⮕"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
     </LinearLayout>
-</ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

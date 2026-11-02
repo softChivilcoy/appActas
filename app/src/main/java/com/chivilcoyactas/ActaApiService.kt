@@ -28,6 +28,10 @@ interface ActaApiService {
 
     @GET("api/catalogos")
     suspend fun obtenerCatalogosMaestros(): Response<CatalogosMaestrosResponse>
+
+    // 🚀 Descarga de archivos (Fotos y Firmas) para Lazy Loading
+    @GET
+    suspend fun descargarArchivo(@retrofit2.http.Url url: String): okhttp3.ResponseBody
 }
 
 // 📦 Clase para recibir la respuesta de Laravel

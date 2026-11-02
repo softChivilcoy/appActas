@@ -179,6 +179,7 @@ class LoginFragment : Fragment() {
                         putInt("INSPECTOR_ID", loginData.idInspector ?: -1)
                         putString("INSPECTOR_NOMBRE", loginData.nombreInspector ?: "Inspector")
                         putString("INSPECTOR_LEGAJO", loginData.legajo ?: "")
+                        putString("INSPECTOR_FIRMA_BASE64", loginData.firmaBase64) // 🚀 Firma del perfil
                         putString("DEVICE_ID", androidId)
                         putInt("PUNTO_EMISION_ID", puntoId)
                         putInt("PUNTO_EMISION_CODIGO", puntoCodigo)
@@ -192,43 +193,158 @@ class LoginFragment : Fragment() {
                     actaViewModel.androidId = androidId
                     actaViewModel.puntoEmisionId = puntoId
 
-                    // 🚀 SINCRONIZACIÓN DE SECUENCIA LOCAL EN ROOM
-                    withContext(Dispatchers.IO) {
-                        val db = AppDatabase.getDatabase(requireContext())
-                        val puntoSecuenciaDao = db.puntoSecuenciaDao()
-                        val anioActual = Calendar.getInstance().get(Calendar.YEAR)
+                    // 🚀 SINCRONIZACIÓN DE DATOS (SECUENCIA Y BORRADORES)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            val db = AppDatabase.getDatabase(requireContext())
+                            val anioActual = Calendar.getInstance().get(Calendar.YEAR)
 
-                        // Consultar la secuencia actual guardada en el teléfono
-                        val secuenciaLocal = puntoSecuenciaDao.obtenerSecuenciaActual(
-                            androidId = androidId,
-                            anio = anioActual
-                        )
+                            // 1. Sincronizar Secuencia
+                            val puntoSecuenciaDao = db.puntoSecuenciaDao()
+                            val secuenciaLocal = puntoSecuenciaDao.obtenerSecuenciaActual(androidId, anioActual)
 
-                        if (secuenciaLocal == null) {
-                            // Caso 1: Celular nuevo / app reinstalada -> Se inicializa con el servidor
-                            puntoSecuenciaDao.insertarOActualizar(
-                                PuntoSecuenciaEntity(
-                                    androidId = androidId,
-                                    serie = "E",
-                                    puntoCodigo = puntoCodigo,
-                                    anio = anioActual,
-                                    ultimaSecuencia = ultimaSecuenciaServidor
+                            if (secuenciaLocal == null) {
+                                puntoSecuenciaDao.insertarOActualizar(
+                                    PuntoSecuenciaEntity(
+                                        androidId = androidId,
+                                        serie = "E",
+                                        puntoCodigo = puntoCodigo,
+                                        anio = anioActual,
+                                        ultimaSecuencia = ultimaSecuenciaServidor
+                                    )
                                 )
-                            )
-                        } else if (ultimaSecuenciaServidor > secuenciaLocal.ultimaSecuencia) {
-                            // Caso 2: El servidor está más adelantado -> Se actualiza el celular
-                            puntoSecuenciaDao.actualizarSecuencia(
-                                androidId = androidId,
-                                anio = anioActual,
-                                nuevaSecuencia = ultimaSecuenciaServidor
-                            )
-                        }
-                        // Caso 3: Si la secuencia local es mayor o igual, se conserva intacta
-                        // para no perder actas tomadas offline aún no subidas.
-                    }
+                            } else if (ultimaSecuenciaServidor > secuenciaLocal.ultimaSecuencia) {
+                                puntoSecuenciaDao.actualizarSecuencia(androidId, anioActual, ultimaSecuenciaServidor)
+                            }
 
-                    dispararSincronizacionCatalogos()
-                    findNavController().navigate(R.id.action_login_to_seleccionReparticion)
+                            // 2. Sincronizar Borradores
+                            loginData.actasBorrador?.forEach { dto ->
+                                db.actaDao().eliminarPorIdServer(dto.idServer)
+
+                                val actaEntity = ActaEntity(
+                                    idServer = dto.idServer.toLong(),
+                                    nroActa = dto.nroActa,
+                                    tipoActa = dto.tipoActa,
+                                    idInspector = loginData.idInspector ?: -1,
+                                    fecha = dto.fecha,
+                                    hora = dto.hora,
+                                    latitud = dto.latitud?.toDoubleOrNull() ?: 0.0,
+                                    longitud = dto.longitud?.toDoubleOrNull() ?: 0.0,
+                                    estadoEnvio = "BORRADOR",
+                                    nombreCalle = dto.nombreCalle ?: "",
+                                    alturaCalle = dto.alturaCalle?.toIntOrNull(),
+                                    detalleReferencia = dto.detalleReferencia,
+                                    observaciones = dto.observaciones,
+                                    procTipoInmueble = dto.procTipoInmueble?.toString(),
+                                    idReparticion = dto.idReparticion,
+                                    serie = dto.serie ?: "E",
+                                    puntoEmisionId = loginData.puntoEmisionId ?: 0,
+                                    anio = dto.anio ?: anioActual,
+                                    secuencia = dto.secuencia ?: 0,
+                                    ejidoUrbano = 1
+                                )
+                                val localId = db.actaDao().insertarCabecera(actaEntity)
+
+                                if (!dto.faltas.isNullOrEmpty()) {
+                                    db.actaDao().insertarFaltas(dto.faltas.map {
+                                        ActaFaltasEntity(actaId = localId, codigoFalta = it, descripcion = "Falta $it")
+                                    })
+                                }
+
+                                if (!dto.vinculados.isNullOrEmpty()) {
+                                    db.actaDao().insertarInfractores(dto.vinculados.map { v ->
+                                        ActaInfractorEntity(
+                                            actaId = localId,
+                                            nombreCompleto = v.nombre ?: "",
+                                            dni = v.dni ?: "",
+                                            calle = v.calle ?: "",
+                                            altura = v.altura ?: "",
+                                            provincia = v.provincia ?: "BUENOS AIRES",
+                                            localidad = v.localidad ?: "CHIVILCOY",
+                                            cp = v.cp ?: "",
+                                            niegaDatos = 0,
+                                            nroLicencia = v.nro_licencia,
+                                            vinculoLugar = v.rol_codigo,
+                                            firmaUrlRemota = v.rutaFirma // 🚀 Guardamos URL para Lazy Loading
+                                        )
+                                    })
+                                }
+
+                                if (!dto.testigos.isNullOrEmpty()) {
+                                    db.actaDao().insertarTestigos(dto.testigos.map { t ->
+                                        ActaTestigoEntity(
+                                            actaId = localId,
+                                            dniOriginal = t.dni ?: "",
+                                            nombreOriginal = "${t.nombre ?: ""} ${t.apellido ?: ""}".trim(),
+                                            domicilioOriginal = "",
+                                            provinciaOriginal = "BUENOS AIRES",
+                                            localidadOriginal = "CHIVILCOY",
+                                            cpOriginal = "",
+                                            firmaUrlRemota = t.rutaFirma // 🚀 Guardamos URL para Lazy Loading
+                                        )
+                                    })
+                                }
+
+                                if (!dto.fotos.isNullOrEmpty()) {
+                                    db.actaDao().insertarMedia(dto.fotos.map { f ->
+                                        ActaMediaEntity(
+                                            actaId = localId,
+                                            tipoMedia = f.tipo,
+                                            rutaArchivo = "", // Vacío hasta que se descargue
+                                            urlRemota = f.ruta // 🚀 Guardamos URL para Lazy Loading
+                                        )
+                                    })
+                                }
+
+                                // 🏢 Sincronizar Comercio (si existe)
+                                dto.comercio?.let { com ->
+                                    db.actaDao().insertarComercio(
+                                        ActaComercioEntity(
+                                            actaId = localId,
+                                            nombreComercio = com.nombreComercio ?: "",
+                                            nroHabilitacionMunicipal = com.nroHabilitacion,
+                                            rubroComercio = com.rubro ?: ""
+                                        )
+                                    )
+                                }
+
+                                // 🗺️ Sincronizar Catastro (si existe)
+                                dto.catastro?.let { cat ->
+                                    db.actaDao().insertarCatastro(
+                                        ActaCatastroEntity(
+                                            actaId = localId,
+                                            ctCirc = cat.circ,
+                                            ctSecc = cat.secc,
+                                            ctChaqNro = cat.chNro,
+                                            ctChaqLet = cat.chLet,
+                                            ctQuinNro = cat.quinNro,
+                                            ctQuinLet = cat.quinLet,
+                                            ctFracNro = cat.fracNro,
+                                            ctFracLetra = cat.fracLetra,
+                                            ctMzNro = cat.mzNro,
+                                            ctMzLet = cat.mzLet,
+                                            ctParcNro = cat.parcNro,
+                                            ctParcLet = cat.parcLet,
+                                            ctSubParc = cat.subParc,
+                                            ctUf = cat.uf,
+                                            partidaMunicipal = cat.partidaMunicipal
+                                        )
+                                    )
+                                }
+                            }
+
+                            withContext(Dispatchers.Main) {
+                                dispararSincronizacionCatalogos()
+                                findNavController().navigate(R.id.action_login_to_seleccionReparticion)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("LOGIN_SYNC", "Error sincronizando datos: ${e.message}")
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(requireContext(), "Error al sincronizar borradores", Toast.LENGTH_SHORT).show()
+                                findNavController().navigate(R.id.action_login_to_seleccionReparticion)
+                            }
+                        }
+                    }
 
                 } else {
                     // 🔍 Extraemos el mensaje de error del errorBody() en respuestas 401/403

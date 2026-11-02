@@ -20,8 +20,13 @@ data class ActaInfractorEntity(
     val actaId: Long,
     val nombreCompleto: String,
     val dni: String,
-    val provincia: String,   // 👈 NUEVO
-    val localidad: String,   // 👈 NUEVO
+    val pais: String? = "ARGENTINA",
+    val provincia: String,
+    val localidad: String,
+    val idPais: Int? = null,
+    val idProvincia: Int? = null,
+    val idLocalidad: Int? = null,
+    val idCalle: Int? = null,
     val cp: String,          // 👈 NUEVO
     val calle: String,
     val altura: String,
@@ -38,5 +43,6 @@ data class ActaInfractorEntity(
     val calleResponsable: String? = null,
     val alturaResponsable: String? = null,
     val firmaPath: String? = null,
+    val firmaUrlRemota: String? = null, // 🚀 Para Lazy Loading de la firma
     val motivoNiega: String? = null
 )

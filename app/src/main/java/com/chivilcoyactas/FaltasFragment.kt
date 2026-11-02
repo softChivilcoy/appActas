@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.*
+import android.widget.Filter
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
@@ -39,6 +40,9 @@ class FaltasFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Estándar 3nStar: Foco inicial en el root
+        binding.rootFaltas.requestFocus()
+
         // Reinicio de scroll al entrar
         binding.scrollFaltas.post {
             binding.scrollFaltas.scrollTo(0, 0)
@@ -58,46 +62,17 @@ class FaltasFragment : Fragment() {
             val listaMaestra = listaFaltasRoom.map { "${it.codigo} - ${it.descripcionCorta}" }
 
             // 🚀 ADAPTER PERSONALIZADO CON FILTRO "CONTAINS" CORREGIDO
-            val adapter = object : ArrayAdapter<String>(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                listaMaestra.toMutableList()
-            ) {
-                private val listaOriginal = ArrayList(listaMaestra)
-
-                override fun getFilter(): android.widget.Filter {
-                    return object : android.widget.Filter() {
-                        override fun performFiltering(constraint: CharSequence?): FilterResults {
-                            val results = FilterResults()
-
-                            // 🚀 Verificación de nulo o vacío corregida en Kotlin
-                            if (constraint.isNullOrEmpty()) {
-                                results.values = listaOriginal
-                                results.count = listaOriginal.size
-                            } else {
-                                val query = constraint.toString().trim().lowercase()
-                                val listaFiltrada = listaOriginal.filter { item ->
-                                    item.lowercase().contains(query) // Busca en números y texto por igual
-                                }
-                                results.values = listaFiltrada
-                                results.count = listaFiltrada.size
-                            }
-                            return results
-                        }
-
-                        @Suppress("UNCHECKED_CAST")
-                        override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                            clear()
-                            if (results != null && results.count > 0) {
-                                addAll(results.values as List<String>)
-                            }
-                            notifyDataSetChanged()
-                        }
-                    }
-                }
-            }
+            val adapter = crearAdapterLimitado(listaMaestra)
 
             binding.autoCompleteFaltas.setAdapter(adapter)
+
+            // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+            binding.autoCompleteFaltas.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
+
+            // 🚀 DISPARADOR MANUAL DEL DROPDOWN AL CLIC
+            binding.autoCompleteFaltas.setOnClickListener {
+                binding.autoCompleteFaltas.showDropDown()
+            }
 
             // Captura del clic
             binding.autoCompleteFaltas.setOnItemClickListener { parent, _, position, _ ->
@@ -130,7 +105,7 @@ class FaltasFragment : Fragment() {
 
 
         binding.textInputLayoutObservaciones.setEndIconOnClickListener {
-            // Limpiamos saltos de línea al final
+            /*// Limpiamos saltos de línea al final
             val textoLimpio = binding.ftObservaciones.text.toString().trimEnd()
             binding.ftObservaciones.setText(textoLimpio)
 
@@ -140,6 +115,19 @@ class FaltasFragment : Fragment() {
             (activity as? MainActivity)?.hideKeyboard()
 
             // Un solo scroll suave hacia arriba sin competir con lostFocus
+            binding.scrollFaltas.post {
+                binding.scrollFaltas.smoothScrollTo(0, 0)
+            }*/
+            // Limpiamos el texto en la UI y en el ViewModel
+            binding.ftObservaciones.setText("")
+            actaViewModel.ftObservaciones = ""
+
+            // Quitamos el foco para cerrar la edición
+            binding.ftObservaciones.clearFocus()
+            binding.contenedorPrincipal.requestFocus()
+            (activity as? MainActivity)?.hideKeyboard()
+
+            // Scroll suave al inicio para ver el resumen de faltas
             binding.scrollFaltas.post {
                 binding.scrollFaltas.smoothScrollTo(0, 0)
             }
@@ -165,6 +153,9 @@ class FaltasFragment : Fragment() {
         binding.autoCompleteFaltas.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 (v as? AutoCompleteTextView)?.showDropDown()
+                (v as? AutoCompleteTextView)?.post {
+                    (v as? AutoCompleteTextView)?.selectAll()
+                }
                 ejecutarAutoScroll(binding.textInputLayoutFaltas)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
             } else {
@@ -174,10 +165,23 @@ class FaltasFragment : Fragment() {
 
         binding.ftObservaciones.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
+                /*(v as? EditText)?.post {
+                    (v as? EditText)?.selectAll()
+                }*/
+                // Coloca el cursor al final del texto existente
+                //binding.ftObservaciones.setSelection(binding.ftObservaciones.text?.length ?: 0)
+
+                binding.ftObservaciones.post {
+                    val length = binding.ftObservaciones.text?.length ?: 0
+                    binding.ftObservaciones.setSelection(length)
+                }
+
                 ejecutarAutoScroll(binding.textInputLayoutObservaciones)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
             } else {
                 v.setBackgroundResource(0)
+                // Guardamos el texto al perder el foco para no perder datos
+                actaViewModel.ftObservaciones = binding.ftObservaciones.text.toString().trim()
             }
         }
 
@@ -365,5 +369,47 @@ class FaltasFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -58,6 +58,8 @@ class FotosFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        binding.contenedorPrincipal.requestFocus()
+
         // Forzar scroll al inicio al entrar o volver
         binding.scrollFotos.post {
             binding.scrollFotos.scrollTo(0, 0)
@@ -100,13 +102,16 @@ class FotosFragment : Fragment() {
         }
 
         binding.inputObservaciones.setEndIconOnClickListener {
-            val textoLimpio = binding.etObservaciones.text.toString().trimEnd()
-            binding.etObservaciones.setText(textoLimpio)
+            // Limpiamos el texto en la UI y en el ViewModel
+            binding.etObservaciones.setText("")
+            actaViewModel.observaciones = ""
 
+            // Quitamos el foco y ocultamos teclado
             binding.etObservaciones.clearFocus()
             binding.contenedorPrincipal.requestFocus()
             (activity as? MainActivity)?.hideKeyboard()
 
+            // Scroll suave hacia arriba
             binding.scrollFotos.post {
                 binding.scrollFotos.smoothScrollTo(0, 0)
             }
@@ -114,10 +119,18 @@ class FotosFragment : Fragment() {
 
         binding.etObservaciones.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
+                // Colocamos el cursor al final del texto existente
+                binding.etObservaciones.post {
+                    val length = binding.etObservaciones.text?.length ?: 0
+                    binding.etObservaciones.setSelection(length)
+                }
+                
                 ejecutarAutoScroll(binding.inputObservaciones)
                 view.setBackgroundResource(R.drawable.bg_edittext_focused)
             } else {
                 view.setBackgroundResource(0)
+                // Guardamos el texto al perder el foco para no perder datos
+                actaViewModel.observaciones = binding.etObservaciones.text.toString().trim()
             }
         }
 

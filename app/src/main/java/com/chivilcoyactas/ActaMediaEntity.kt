@@ -19,5 +19,6 @@ data class ActaMediaEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val actaId: Long,
     val tipoMedia: String, // "FOTO_1", "FOTO_2", "FIRMA"
-    val rutaArchivo: String
+    val rutaArchivo: String,
+    val urlRemota: String? = null // 🚀 Para Lazy Loading desde el servidor
 )

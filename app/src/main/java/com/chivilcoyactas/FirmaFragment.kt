@@ -60,6 +60,9 @@ class FirmaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Estándar de Foco 3nStar
+        binding.root.requestFocus()
+
         // 1. Configuración inicial
         generarBotonesDinamicos()
 
@@ -76,14 +79,19 @@ class FirmaFragment : Fragment() {
                 if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     mostrarDialogoEstadoInspeccion()
                 } else {
-                    guardarYEnviarAlServidor("PENDIENTE")
+                    guardarYEnviarAlServidor("ENVIADA")
                 }
             } else {
-                // Si no se niega, verificamos si hay al menos una firma o si es obligatorio
+                // 🚀 Lógica de validación de firmas mejorada
+                val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
+                val tieneFirmaPerfil = !prefs.getString("INSPECTOR_FIRMA_BASE64", null).isNullOrEmpty()
+                
                 val hayAlgunaFirma = !actaViewModel.Testigo1FirmaPath.isNullOrEmpty() || 
                                      !actaViewModel.Testigo2FirmaPath.isNullOrEmpty() || 
                                      !actaViewModel.firmaInfractorPath.isNullOrEmpty() ||
-                                     actaViewModel.datosPersonasVinculadas.values.any { !it.firmaPath.isNullOrEmpty() }
+                                     actaViewModel.datosPersonasVinculadas.values.any { !it.firmaPath.isNullOrEmpty() } ||
+                                     !actaViewModel.firmaInspectorPath.isNullOrEmpty() ||
+                                     tieneFirmaPerfil // 👈 Si el inspector ya tiene firma en el perfil, es válida
 
                 if (!hayAlgunaFirma) {
                     Toast.makeText(requireContext(), "Debe registrar al menos una firma o marcar que se niega", Toast.LENGTH_LONG).show()
@@ -93,7 +101,7 @@ class FirmaFragment : Fragment() {
                 if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
                     mostrarDialogoEstadoInspeccion()
                 } else {
-                    guardarYEnviarAlServidor("PENDIENTE")
+                    guardarYEnviarAlServidor("ENVIADA")
                 }
             }
         }
@@ -185,10 +193,24 @@ class FirmaFragment : Fragment() {
             val clave = if (p.dni.isNotBlank()) p.dni.replace(".", "").replace("-", "").trim() else p.nombre.trim().lowercase()
             agregarFilaFirma(texto, "VINCULO_$clave", !p.firmaPath.isNullOrEmpty())
         }
+
+        // 3. Firma del Inspector (Si no tiene firma pre-cargada en el perfil)
+        val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
+        val firmaPerfil = prefs.getString("INSPECTOR_FIRMA_BASE64", null)
+        val nombreIns = prefs.getString("INSPECTOR_NOMBRE", "Inspector")
+
+        if (!firmaPerfil.isNullOrEmpty()) {
+            // 🚀 Si tiene firma en el perfil, mostramos el botón como ya firmado
+            agregarFilaFirma("Firma Inspector (Perfil): $nombreIns", "INSPECTOR_PERFIL", true)
+        } else {
+            // Si no tiene firma en el perfil, permitimos la firma manual
+            agregarFilaFirma("Firma Inspector: $nombreIns", "INSPECTOR", !actaViewModel.firmaInspectorPath.isNullOrEmpty())
+        }
     }
 
     private fun agregarFilaFirma(texto: String, tag: String, yaFirmado: Boolean) {
-        val layoutFila = LinearLayout(requireContext()).apply {
+        val context = requireContext()
+        val layoutFila = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -198,35 +220,49 @@ class FirmaFragment : Fragment() {
             setPadding(0, 0, 0, 16)
         }
 
-        val btn = com.google.android.material.button.MaterialButton(requireContext(), null, com.google.android.material.R.style.Widget_Material3_Button_OutlinedButton).apply {
+        // Colores dinámicos para botones
+        val colorPrimary = com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, android.graphics.Color.BLACK)
+        val colorSurfaceVariant = com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceVariant, android.graphics.Color.LTGRAY)
+        val colorOnSurfaceVariant = com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurfaceVariant, android.graphics.Color.BLACK)
+        val colorOutline = com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorOutline, android.graphics.Color.GRAY)
+
+        val btn = com.google.android.material.button.MaterialButton(context, null, com.google.android.material.R.style.Widget_Material3_Button_OutlinedButton).apply {
             this.text = if (yaFirmado) "✅ $texto" else texto
             this.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            this.textSize = 14f // Reducir un poco el tamaño para que quepa mejor con el check
+            this.textSize = 14f
             this.setPadding(32, 40, 32, 40)
             
             if (yaFirmado) {
-                this.strokeColor = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#33BB66"))
+                this.strokeColor = android.content.res.ColorStateList.valueOf(colorPrimary)
                 this.strokeWidth = 3
-                setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9")) // Verde clarito si ya firmó
-                this.setTextColor(android.graphics.Color.parseColor("#33BB66"))
+                this.setBackgroundColor(colorSurfaceVariant)
+                this.setTextColor(colorPrimary)
+                this.iconTint = android.content.res.ColorStateList.valueOf(colorPrimary)
             } else {
-                this.strokeColor = android.content.res.ColorStateList.valueOf(android.graphics.Color.LTGRAY)
+                this.strokeColor = android.content.res.ColorStateList.valueOf(colorOutline)
                 this.strokeWidth = 2
-                setBackgroundColor(android.graphics.Color.WHITE)
-                this.setTextColor(android.graphics.Color.BLACK)
+                this.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                this.setTextColor(colorOnSurfaceVariant)
             }
             this.isAllCaps = false
             
-            this.setOnClickListener {
-                procesarSeleccionFirma(tag)
+            // 🚀 Solo permitimos clic si NO es la firma del perfil (la del perfil es fija)
+            if (tag != "INSPECTOR_PERFIL") {
+                this.setOnClickListener {
+                    procesarSeleccionFirma(tag)
+                }
+            } else {
+                this.setOnClickListener {
+                    Toast.makeText(context, "Se utilizará la firma de su perfil de usuario", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
         layoutFila.addView(btn)
 
-        // Si ya está firmado, agregamos el botón de borrar
-        if (yaFirmado) {
-            val btnBorrar = android.widget.ImageButton(requireContext()).apply {
+        // Si ya está firmado Y NO ES la firma del perfil, agregamos el botón de borrar
+        if (yaFirmado && tag != "INSPECTOR_PERFIL") {
+            val btnBorrar = android.widget.ImageButton(context).apply {
                 setImageResource(android.R.drawable.ic_menu_delete)
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 setColorFilter(android.graphics.Color.RED)
@@ -263,6 +299,10 @@ class FirmaFragment : Fragment() {
             tag == "TESTIGO_2" -> {
                 borrarArchivoFisico(actaViewModel.Testigo2FirmaPath)
                 actaViewModel.Testigo2FirmaPath = null
+            }
+            tag == "INSPECTOR" -> {
+                borrarArchivoFisico(actaViewModel.firmaInspectorPath)
+                actaViewModel.firmaInspectorPath = null
             }
             tag.startsWith("VINCULO_") -> {
                 val identificador = tag.replace("VINCULO_", "")
@@ -313,8 +353,14 @@ class FirmaFragment : Fragment() {
                 val nombre = if (testigoIndexActual == 1) actaViewModel.Testigo1Nombre else actaViewModel.Testigo2Nombre
 
                 if (!nombre.isNullOrBlank()) {
-                    prepararModoFirma(true)
+                    prepararModoFirma(true, false)
                 }
+            }
+            tag == "INSPECTOR" -> {
+                esFirmaTestigo = false
+                personaActual = null
+                claveVinculoActual = "INSPECTOR"
+                prepararModoFirma(false, true)
             }
             tag.startsWith("VINCULO_") -> {
                 esFirmaTestigo = false
@@ -328,17 +374,26 @@ class FirmaFragment : Fragment() {
                 }
                 
                 testigoIndexActual = 0
-                prepararModoFirma(false)
+                prepararModoFirma(false, false)
             }
         }
     }
 
-    private fun prepararModoFirma(esTestigo: Boolean) {
-        val titulo = if (esTestigo) "FIRMA DE TESTIGO" else "FIRMA DE VÍNCULO"
-        val nombre = if (esTestigo) {
-            if (testigoIndexActual == 1) actaViewModel.Testigo1Nombre else actaViewModel.Testigo2Nombre
-        } else {
-            personaActual?.nombre ?: "Desconocido"
+    private fun prepararModoFirma(esTestigo: Boolean, esInspector: Boolean) {
+        val titulo = when {
+            esTestigo -> "FIRMA DE TESTIGO"
+            esInspector -> "FIRMA DEL INSPECTOR"
+            else -> "FIRMA DE VÍNCULO"
+        }
+        val nombre = when {
+            esTestigo -> {
+                if (testigoIndexActual == 1) actaViewModel.Testigo1Nombre else actaViewModel.Testigo2Nombre
+            }
+            esInspector -> {
+                val prefs = requireContext().getSharedPreferences("SesionInspector", Context.MODE_PRIVATE)
+                prefs.getString("INSPECTOR_NOMBRE", "Inspector")
+            }
+            else -> personaActual?.nombre ?: "Desconocido"
         }
 
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
@@ -377,6 +432,9 @@ class FirmaFragment : Fragment() {
                 borrarArchivoFisico(actaViewModel.Testigo2FirmaPath)
                 actaViewModel.Testigo2FirmaPath = ruta
             }
+        } else if (claveVinculoActual == "INSPECTOR") {
+            borrarArchivoFisico(actaViewModel.firmaInspectorPath)
+            actaViewModel.firmaInspectorPath = ruta
         } else {
             val claveAComparar = claveVinculoActual ?: ""
 
@@ -438,7 +496,7 @@ class FirmaFragment : Fragment() {
             .setTitle("¿Confirmar envío al Juzgado?")
             .setMessage("Una vez finalizada, no podrá editar el acta desde la hoja de ruta.")
             .setPositiveButton("SÍ, FINALIZAR") { _, _ ->
-                guardarYEnviarAlServidor("PENDIENTE")
+                guardarYEnviarAlServidor("ENVIADA")
             }
             .setNegativeButton("VOLVER", null)
             .show()
@@ -529,6 +587,12 @@ class FirmaFragment : Fragment() {
 
             return "$serieFormatted-$puntoFormatted-$anioFormatted-$secuenciaFormatted-$dv"
         }
+
+        fun generarTokenSeguridad(nroActa: String): String {
+            val raw = nroActa + System.currentTimeMillis().toString()
+            val digest = java.security.MessageDigest.getInstance("SHA-1").digest(raw.toByteArray())
+            return digest.joinToString("") { "%02x".format(it) }.take(8).uppercase()
+        }
     }
 
     private fun guardarYEnviarAlServidor(estadoActa: String) {
@@ -541,7 +605,6 @@ class FirmaFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val firmaBase64 = null
                 val db = AppDatabase.getDatabase(requireContext())
 
                 // 1. Obtenemos fecha y hora
@@ -613,6 +676,17 @@ class FirmaFragment : Fragment() {
                 actaViewModel.nroActa = nroActaGenerado
                 actaViewModel.puntoEmisionId = puntoEmisionIdLogueado
 
+                // 🚀 Generar Token de Seguridad para Validación Legal
+                val tokenSeguridad = if (actaViewModel.codigoValidacion.isNotBlank()) {
+                    actaViewModel.codigoValidacion
+                } else {
+                    CalculadorActaHelper.generarTokenSeguridad(nroActaGenerado)
+                }
+                actaViewModel.codigoValidacion = tokenSeguridad
+
+                // 🚀 Recuperar firma de perfil si existe
+                val firmaInspectorPerfil = prefs.getString("INSPECTOR_FIRMA_BASE64", null)
+
                 // 1. Guardamos Cabecera General
                 val nuevaActa = ActaEntity(
                     // 🚀 AHORA SÍ: Si ya veníamos editando un borrador (idActaLocal > 0), mantenemos ese ID.
@@ -626,7 +700,8 @@ class FirmaFragment : Fragment() {
                     latitud = actaViewModel.latitud,
                     longitud = actaViewModel.longitud,
                     estadoEnvio = estadoActa,
-                    firmaInspectorBase64 = firmaBase64,
+                    idHojaRuta = actaViewModel.idHojaRuta,
+                    firmaInspectorBase64 = firmaInspectorPerfil,
                     esOperativo = actaViewModel.esOperativo,
                     ejidoUrbano = actaViewModel.ejidoUrbano,
                     nombreCalle = actaViewModel.calle,
@@ -636,13 +711,17 @@ class FirmaFragment : Fragment() {
                     idJuzgado = juzgadoAsignado,
                     idReparticion = idReparticionSeleccionada,
                     detalleFalta = observacionesFalta,
-                    observaciones = actaViewModel.observaciones.trim().ifEmpty { null }, // 🚀 Persistir observaciones
-                    procTipoInmueble = actaViewModel.procTipoInmueble.trim().ifEmpty { null }, // 🚀 Persistir tipo inmueble
+                    observaciones = actaViewModel.observaciones.trim().ifEmpty { null },
+                    procTipoInmueble = actaViewModel.procTipoInmueble.trim().ifEmpty { null },
                     serie = serieActa,
                     puntoEmisionId = puntoEmisionIdLogueado,
                     anio = anioActa,
-                    secuencia = secuenciaActa
+                    secuencia = secuenciaActa,
+                    codigoValidacion = tokenSeguridad,
+                    firmaInspectorPath = actaViewModel.firmaInspectorPath, // 🚀 PERSISTENCIA LOCAL
+                    idServer = actaViewModel.idServer // 🚀 IMPORTANTE: MANTENER EL ID DEL SERVIDOR
                 )
+
 
                 val idLocal = db.actaDao().insertarCabecera(nuevaActa)
                 actaViewModel.idActaLocal = idLocal
@@ -672,9 +751,14 @@ class FirmaFragment : Fragment() {
                                 actaId = idLocal,
                                 nombreCompleto = p.nombre,
                                 dni = p.dni,
+                                pais = p.pais,
                                 provincia = p.provincia,
                                 localidad = p.localidad,
                                 cp = p.cp,
+                                idPais = p.idPais ?: 32,
+                                idProvincia = p.idProvincia,
+                                idLocalidad = p.idLocalidad,
+                                idCalle = p.idCalle,
                                 calle = p.calle,
                                 altura = p.altura,
                                 niegaDatos = 0,
@@ -692,9 +776,13 @@ class FirmaFragment : Fragment() {
                             actaId = idLocal,
                             nombreCompleto = "",
                             dni = "",
-                            provincia = "BUENOS AIRES",
-                            localidad = "CHIVILCOY",
-                            cp = "6620",
+                            pais = actaViewModel.paisInfractor,
+                            provincia = actaViewModel.provinciaInfractor,
+                            localidad = actaViewModel.localidadInfractor,
+                            cp = actaViewModel.cpInfractor,
+                            idPais = actaViewModel.idPaisInfractor ?: 32,
+                            idProvincia = actaViewModel.idProvinciaInfractor,
+                            idLocalidad = actaViewModel.idLocalidadInfractor,
                             calle = "",
                             altura = "",
                             niegaDatos = if (actaViewModel.niegaDatos != -1) actaViewModel.niegaDatos else 1,
@@ -821,28 +909,26 @@ class FirmaFragment : Fragment() {
                         }
 
                         // 3. Datos Catastrales (si aplica)
-                        val ctCirc = actaViewModel.catCirc?.trim() ?: ""
-                        val ctSecc = actaViewModel.catSeccion?.trim() ?: ""
+                        val datosCatastro = ActaCatastroEntity(
+                            actaId = idLocal,
+                            ctCirc = actaViewModel.catCirc,
+                            ctSecc = actaViewModel.catSeccion,
+                            ctChaqNro = actaViewModel.catChacraNro,
+                            ctChaqLet = actaViewModel.catChacraLet,
+                            ctQuinNro = actaViewModel.catQuintaNro,
+                            ctQuinLet = actaViewModel.catQuintaLet,
+                            ctFracNro = actaViewModel.catFraccionNro,
+                            ctFracLetra = actaViewModel.catFraccionLet,
+                            ctMzNro = actaViewModel.catManzanaNro,
+                            ctMzLet = actaViewModel.catManzanaLet,
+                            ctParcNro = actaViewModel.catParcelaNro,
+                            ctParcLet = actaViewModel.catParcelaLet,
+                            ctSubParc = "${actaViewModel.catSubparcelaNro} ${actaViewModel.catSubparcelaLet}".trim(),
+                            ctUf = actaViewModel.catUF,
+                            partidaMunicipal = actaViewModel.catPartidaMunicipal
+                        )
 
-                        if (ctCirc.isNotEmpty() || ctSecc.isNotEmpty() || actaViewModel.catPartidaMunicipal.isNotBlank()) {
-                            val datosCatastro = ActaCatastroEntity(
-                                actaId = idLocal,
-                                ctCirc = actaViewModel.catCirc,
-                                ctSecc = actaViewModel.catSeccion,
-                                ctChaqNro = actaViewModel.catChacraNro,
-                                ctChaqLet = actaViewModel.catChacraLet,
-                                ctQuinNro = actaViewModel.catQuintaNro,
-                                ctQuinLet = actaViewModel.catQuintaLet,
-                                ctFracNro = actaViewModel.catFraccionNro,
-                                ctFracLetra = actaViewModel.catFraccionLet,
-                                ctMzNro = actaViewModel.catManzanaNro,
-                                ctMzLet = actaViewModel.catManzanaLet,
-                                ctParcNro = actaViewModel.catParcelaNro,
-                                ctParcLet = actaViewModel.catParcelaLet,
-                                ctSubParc = actaViewModel.catSubparcela,
-                                ctUf = actaViewModel.catUF,
-                                partidaMunicipal = actaViewModel.catPartidaMunicipal
-                            )
+                        if (!datosCatastro.esVacio()) {
                             db.actaDao().insertarCatastro(datosCatastro)
                         }
                     }
@@ -862,9 +948,16 @@ class FirmaFragment : Fragment() {
                             actaId = idLocal,
                             dniOriginal = dniT1,
                             nombreOriginal = nombreT1,
+                            paisOriginal = actaViewModel.Testigo1Pais,
                             provinciaOriginal = actaViewModel.Testigo1Provincia.trim(),
                             domicilioOriginal = "${actaViewModel.Testigo1Calle} ${actaViewModel.Testigo1CalleNro}".trim(),
                             localidadOriginal = actaViewModel.Testigo1Localidad.trim(),
+                            idPaisOriginal = actaViewModel.Testigo1IdPais ?: 32,
+                            idProvinciaOriginal = actaViewModel.Testigo1IdProvincia,
+                            idLocalidadOriginal = actaViewModel.Testigo1IdLocalidad,
+                            idCalleOriginal = actaViewModel.Testigo1IdCalle,
+                            calleOriginal = actaViewModel.Testigo1Calle.trim(),
+                            alturaCalle = actaViewModel.Testigo1CalleNro.trim(),
                             cpOriginal = actaViewModel.Testigo1Cp.trim(),
                             firmaPath = actaViewModel.Testigo1FirmaPath
                         )
@@ -880,9 +973,16 @@ class FirmaFragment : Fragment() {
                             actaId = idLocal,
                             dniOriginal = dniT2,
                             nombreOriginal = nombreT2,
+                            paisOriginal = actaViewModel.Testigo2Pais,
                             provinciaOriginal = actaViewModel.Testigo2Provincia.trim(),
                             domicilioOriginal = "${actaViewModel.Testigo2Calle} ${actaViewModel.Testigo2CalleNro}".trim(),
                             localidadOriginal = actaViewModel.Testigo2Localidad.trim(),
+                            idPaisOriginal = actaViewModel.Testigo2IdPais ?: 32,
+                            idProvinciaOriginal = actaViewModel.Testigo2IdProvincia,
+                            idLocalidadOriginal = actaViewModel.Testigo2IdLocalidad,
+                            idCalleOriginal = actaViewModel.Testigo2IdCalle,
+                            calleOriginal = actaViewModel.Testigo2Calle.trim(),
+                            alturaCalle = actaViewModel.Testigo2CalleNro.trim(),
                             cpOriginal = actaViewModel.Testigo2Cp.trim(),
                             firmaPath = actaViewModel.Testigo2FirmaPath
                         )
@@ -928,7 +1028,7 @@ class FirmaFragment : Fragment() {
 
 
                 // Solo encolamos la sincronización si el acta NO es un borrador pendiente
-                if (estadoActa == "PENDIENTE") {
+                if (estadoActa == "PENDIENTE" || estadoActa == "ENVIADA" || estadoActa == "BORRADOR") {
                    /* val restricciones = Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build()

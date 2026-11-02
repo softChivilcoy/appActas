@@ -23,8 +23,15 @@ data class ActaTestigoEntity(
     val dniOriginal: String,
     val nombreOriginal: String,
     val domicilioOriginal: String,
+    val paisOriginal: String? = "ARGENTINA",
     val provinciaOriginal: String,
     val localidadOriginal: String,
+    val idPaisOriginal: Int? = null,
+    val idProvinciaOriginal: Int? = null,
+    val idLocalidadOriginal: Int? = null,
+    val idCalleOriginal: Int? = null,
+    var calleOriginal: String? = null,
+    val alturaCalle: String? = null, // 🚀 NUEVO CAMPO
     val cpOriginal: String,
 
     // ⚖️ Espacio reservado para que el Juzgado verifique en la Web de Laravel
@@ -33,5 +40,6 @@ data class ActaTestigoEntity(
     val domicilioVerificado: String? = null,
     val estadoVerificacion: String = "PENDIENTE", // PENDIENTE, VALIDO, ERRONEO
 
-    val firmaPath: String? = null
+    val firmaPath: String? = null,
+    val firmaUrlRemota: String? = null // 🚀 Para Lazy Loading de la firma
 )

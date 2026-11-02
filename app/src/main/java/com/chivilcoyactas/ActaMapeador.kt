@@ -26,6 +26,7 @@ object ActaMapeador {
         // 1. Mapeamos la Cabecera
         val cabeceraDto = CabeceraDto(
             idLocal = acta.idLocal,
+            idServer = acta.idServer,
             nroActa = acta.nroActa,
             tipoActa = acta.tipoActa,
             tipoFormulario = tipoFormularioCalculado, //
@@ -35,8 +36,11 @@ object ActaMapeador {
             latitud = acta.latitud,
             longitud = acta.longitud,
             idHojaRuta = acta.idHojaRuta,
-            firmaInspectorBase64 = acta.firmaInspectorBase64,
+            // 🚀 Si hay firma física nueva, la convertimos. Si no, usamos la que ya tenía (del perfil)
+            firmaInspectorBase64 = dbData.cabecera.firmaInspectorPath?.let { convertirArchivoABase64(it) } 
+                                   ?: dbData.cabecera.firmaInspectorBase64,
             esOperativo = acta.esOperativo,
+
             ejidoUrbano = acta.ejidoUrbano,
             nombreCalle = acta.nombreCalle,
             alturaCalle = acta.alturaCalle,
@@ -47,10 +51,12 @@ object ActaMapeador {
             detalleFalta = acta.detalleFalta,
             observaciones = acta.observaciones, // 🚀 Mapeado
             tipoInmueble = acta.procTipoInmueble, // 🚀 Mapeado (Categorías unidas por coma)
+            estadoEnvio = acta.estadoEnvio,      // 🚀 AGREGADO
             serie = acta.serie,
             puntoEmisionId = acta.puntoEmisionId,
             anio = acta.anio,
             secuencia = acta.secuencia,
+            codigoValidacion = acta.codigoValidacion
         )
 
         // 2. Mapeamos los Infractores / Personas Vinculadas
@@ -58,10 +64,11 @@ object ActaMapeador {
             InfractorDto(
                 nombreCompleto = it.nombreCompleto,
                 dni = it.dni,
-                provincia = it.provincia,
-                localidad = it.localidad,
+                pais = it.idPais?.toString() ?: it.pais ?: "ARGENTINA", // 🚀 AGREGADO
+                provincia = it.idProvincia?.toString() ?: it.provincia,
+                localidad = it.idLocalidad?.toString() ?: it.localidad,
                 cp = it.cp,
-                calle = it.calle,
+                calle = it.idCalle?.toString() ?: it.calle,
                 altura = it.altura,
                 niegaDatos = it.niegaDatos,
                 vinculoLugar = it.vinculoLugar,
@@ -79,14 +86,17 @@ object ActaMapeador {
             FaltaDto(codigoArticulo = it.codigoFalta, descripcion = it.descripcion)
         }
 
-        // 4. Mapeamos los Testigos (Agregado: provinciaOriginal)
+        // 4. Mapeamos los Testigos (Agregado: provinciaOriginal y alturaCalle)
         val testigosDto = dbData.testigos.map {
             TestigoDto(
                 dniOriginal = it.dniOriginal,
                 nombreOriginal = it.nombreOriginal,
-                domicilioOriginal = it.domicilioOriginal,
-                provinciaOriginal = it.provinciaOriginal, // 🚀 AGREGADO
-                localidadOriginal = it.localidadOriginal,
+                paisOriginal = it.idPaisOriginal?.toString() ?: it.paisOriginal ?: "ARGENTINA", // 🚀 AGREGADO
+                domicilioOriginal = it.idCalleOriginal?.toString() ?: it.domicilioOriginal,
+                provinciaOriginal = it.idProvinciaOriginal?.toString() ?: it.provinciaOriginal, // 🚀 AGREGADO
+                localidadOriginal = it.idLocalidadOriginal?.toString() ?: it.localidadOriginal,
+                calleOriginal = it.calleOriginal,
+                alturaCalle = it.alturaCalle, // 🚀 NUEVO
                 cpOriginal = it.cpOriginal,
                 firmaPath = it.firmaPath
             )

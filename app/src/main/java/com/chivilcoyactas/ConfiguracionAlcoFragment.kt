@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.Filter
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -115,12 +116,30 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
                 if (listaEquipos.isNotEmpty()) {
                     val nombresEquipos = listaEquipos.map { "${it.marca ?: "Sin Marca"} (Serie: ${it.nroSerie ?: "S/C"})" }
 
-                    val adapter = ArrayAdapter(
-                        requireContext(),
-                        android.R.layout.simple_dropdown_item_1line,
-                        nombresEquipos
-                    )
+                    val adapter = crearAdapterLimitado(nombresEquipos)
                     binding.etConfigMarca.setAdapter(adapter)
+
+                    // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+                    binding.etConfigMarca.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
+
+                    binding.etConfigMarca.threshold = 1
+
+                    // 🚀 DISPARADOR MANUAL DEL DROPDOWN AL CLIC
+                    binding.etConfigMarca.setOnClickListener {
+                        binding.etConfigMarca.showDropDown()
+                    }
+
+                    binding.etConfigMarca.setOnFocusChangeListener { v, hasFocus ->
+                        if (hasFocus) {
+                            binding.etConfigMarca.post {
+                                binding.etConfigMarca.selectAll()
+                            }
+                            binding.etConfigMarca.showDropDown()
+                            v.setBackgroundResource(R.drawable.bg_edittext_focused)
+                        } else {
+                            v.setBackgroundResource(0)
+                        }
+                    }
 
                     // Verificar si ya existía un equipo activo en SessionManager
                     restaurarEstadoPrevio()
@@ -161,6 +180,47 @@ class ConfiguracionAlcoFragment : Fragment(R.layout.fragment_configuracion_alco)
         binding.etConfigModelo.setText("")
         binding.etConfigSerie.setText("")
         binding.etConfigAprobacion.setText("")
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {

@@ -9,9 +9,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.Toast
+import android.widget.*
+import android.widget.Filter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
@@ -72,7 +71,7 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         (activity as? MainActivity)?.actualizarProgreso(1)
-
+        binding.root.requestFocus()
 
         // Solución moderna para el UserAgent sin PreferenceManager viejos
         Configuration.getInstance().userAgentValue = requireContext().packageName
@@ -95,6 +94,14 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
         // Se Inicia SIEMPRE la instancia para evitar el crash si se accede luego
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+
+        // Configuración botón volver (específico Inspección)
+        if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+            binding.btnVolverUbicacion.visibility = View.VISIBLE
+            binding.btnVolverUbicacion.setOnClickListener {
+                findNavController().navigate(R.id.hojaRutaFragment)
+            }
+        }
 
         // 1. Asignamos e inicializamos el Mapa PRIMERO que nada
         openStreetMap = binding.mapView
@@ -175,66 +182,30 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         // 🚀 Pasamos una copia MUTABLE (ArrayList) al constructor para evitar el crash
         val listaSugerenciasMutables = ArrayList(callesChivilcoy.toList())
 
-        // Límite máximo de sugerencias a desplegar
-        val MAX_SUGERENCIAS = 5
-
-        val adapter = object : ArrayAdapter<String>(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            listaSugerenciasMutables
-        ) {
-            // Mantenemos una referencia fija de todas las calles para filtrar
-            private val todasLasCalles = callesChivilcoy.toList()
-
-            override fun getFilter(): android.widget.Filter {
-                return object : android.widget.Filter() {
-                    override fun performFiltering(constraint: CharSequence?): FilterResults {
-                        val results = FilterResults()
-
-                        if (constraint.isNullOrEmpty()) {
-                            // Si el campo está vacío, no mostramos nada hasta que escriba 1 letra
-                            results.values = emptyList<String>()
-                            results.count = 0
-                        } else {
-                            val busqueda = constraint.toString().lowercase(Locale.getDefault()).trim()
-
-                            // Buscamos coincidencias parciales y aplicamos el acotamiento con .take()
-                            val sugerenciasFiltradas = todasLasCalles.filter { calle ->
-                                calle.lowercase(Locale.getDefault()).contains(busqueda)
-                            }.take(MAX_SUGERENCIAS) // 👈 ACÁ LIMITAMOS EL LISTADO A 6
-
-                            results.values = sugerenciasFiltradas
-                            results.count = sugerenciasFiltradas.size
-                        }
-                        return results
-                    }
-
-                    @Suppress("UNCHECKED_CAST")
-                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                        clear()
-                        if (results != null && results.count > 0) {
-                            addAll(results.values as List<String>)
-                            notifyDataSetChanged()
-                        } else {
-                            notifyDataSetInvalidated()
-                        }
-                    }
-                }
-            }
-        }
-
         // Vinculamos el nuevo adapter blindado
+        val adapter = crearAdapterLimitado(listaSugerenciasMutables)
         binding.acCalle.setAdapter(adapter)
+
+        // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+        binding.acCalle.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
+
+        // 🚀 DISPARADOR MANUAL DEL DROPDOWN AL CLIC
+        binding.acCalle.setOnClickListener {
+            binding.acCalle.showDropDown()
+        }
 
 
         // 🚀 BLOQUE DE VALIDACIÓN ESTRICTA Y MANEJO DE FOCO:
-        binding.acCalle.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+        binding.acCalle.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 binding.acCalle.post {
                     binding.acCalle.selectAll()
                 }
+                binding.acCalle.showDropDown()
                 ejecutarAutoScroll(binding.acCalle)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
             } else {
+                v.setBackgroundResource(0)
                 val textoIngresado = binding.acCalle.text.toString().trim()
 
                 if (textoIngresado.isNotEmpty()) {
@@ -264,10 +235,14 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         // --- 2. LÓGICA DE OPERATIVO (SOLO TRÁNSITO) ---
         if (actaViewModel.tipoFormulario == TipoFormulario.TRANSITO) {
             binding.layoutOperativoContainer.visibility = View.VISIBLE
-            //binding.cvEjidoUrbano.visibility = View.VISIBLE
+            
+            // Centrar el botón "Confirmar" en Tránsito (donde es el único botón)
+            // Se le asigna el peso total (3) para que ocupe todo el ancho y se vea centrado
+            val params = binding.btnSiguienteUbicacion.layoutParams as LinearLayout.LayoutParams
+            params.weight = 3f
+            binding.btnSiguienteUbicacion.layoutParams = params
         } else {
             binding.layoutOperativoContainer.visibility = View.GONE
-           // binding.cvEjidoUrbano.visibility = View.GONE
         }
 
 
@@ -412,7 +387,13 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
         val callback = object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Impide volver al login accidentalmente
+                if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+                    // Si es inspección, volvemos a la hoja de ruta
+                    findNavController().navigate(R.id.hojaRutaFragment)
+                } else {
+                    // Si es tránsito, volvemos a la configuración de alcoholemia
+                    findNavController().popBackStack()
+                }
             }
         }
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
@@ -424,6 +405,35 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
         }
 
         dibujarEjidoEnMapa()
+
+        // EditTexts
+        binding.etAlturaUbicacion.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etAlturaUbicacion.selectAll()
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.etDeptoUbicacion.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etDeptoUbicacion.selectAll()
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
+        binding.etReferenciaUbicacion.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                binding.etReferenciaUbicacion.selectAll()
+                ejecutarAutoScroll(v)
+                v.setBackgroundResource(R.drawable.bg_edittext_focused)
+            } else {
+                v.setBackgroundResource(0)
+            }
+        }
     }
 
     // --- FUNCIONES AUXILIARES DE FLUJO ---
@@ -439,8 +449,8 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
 
             try {
                 binding.scrollUbicacion.offsetDescendantRectToMyCoords(parentInput, rect)
-                // Scrolleamos para que el campo quede en la parte superior con un margen generoso (80dp)
-                val margin = (80 * resources.displayMetrics.density).toInt()
+                // Scrolleamos para que el campo quede en la parte superior con un margen generoso (90dp)
+                val margin = (90 * resources.displayMetrics.density).toInt()
                 val scrollY = (rect.top - margin).coerceAtLeast(0)
                 binding.scrollUbicacion.smoothScrollTo(0, scrollY)
             } catch (e: Exception) {
@@ -658,6 +668,48 @@ class UbicacionFragment : Fragment(R.layout.fragment_ubicacion) {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun isGpsEncendido(): Boolean {

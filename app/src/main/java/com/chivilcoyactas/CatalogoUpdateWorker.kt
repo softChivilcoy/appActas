@@ -44,11 +44,18 @@ class CatalogoUpdateWorker(
                 val listaModelos = catalogos.tipoModelos.map {
                     TipoModeloEntity(id = it.id, nombre = it.nombre, marcaId = it.idMarca)
                 }
+                val listaPaises = catalogos.paises?.map {
+                    PaisEntity(id = it.id, nombre = it.nombre)
+                } ?: emptyList()
+
                 val listaProvincias = catalogos.tipoProvincias.map {
-                    TipoProvinciaEntity(id = it.id, nombre = it.nombre)
+                    TipoProvinciaEntity(id = it.id, nombre = it.nombre, paisId = it.idPais)
                 }
                 val listaLocalidades = catalogos.tipoLocalidades.map {
                     TipoLocalidadEntity(id = it.id, nombre = it.nombre, provinciaId = it.idProvincia)
+                }
+                val listaCpostales = catalogos.tipoCpostal.map {
+                    TipoCpostalEntity(id = it.id, codigo = it.codigo, localidadId = it.idLocalidad)
                 }
                 val listaActas = catalogos.tiposActa.map {
                     TipoActaEntity(id = it.id, nombre = it.nombre, requiereFaltas = it.requiereFaltas)
@@ -104,7 +111,9 @@ class CatalogoUpdateWorker(
                     marcas = listaMarcas,
                     modelos = listaModelos,
                     provincias = listaProvincias,
+                    paises = listaPaises,
                     localidades = listaLocalidades,
+                    cpostales = listaCpostales,
                     actas = listaActas,
                     quincenas = listaQuincenas,
                     categorias = listaCategorias,

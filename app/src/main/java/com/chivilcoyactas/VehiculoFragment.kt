@@ -10,6 +10,7 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -25,6 +26,7 @@ import kotlin.getValue
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.Filter
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -50,8 +52,13 @@ class VehiculoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Forzar scroll al inicio al entrar/volver
-        binding.scrollVehiculo.post { binding.scrollVehiculo.scrollTo(0, 0) }
+        // Forzar scroll al inicio al entrar/volver y asegurar que no haya foco inicial
+        binding.scrollVehiculo.post {
+            binding.scrollVehiculo.scrollTo(0, 0)
+        }
+        
+        // Reset inicial de foco para hardware 3nStar
+        binding.rootVehiculo.requestFocus()
 
         // Aplicar padding dinámico según el teclado
         ViewCompat.setOnApplyWindowInsetsListener(binding.scrollVehiculo) { v, insets ->
@@ -103,8 +110,11 @@ class VehiculoFragment : Fragment() {
         // 1. CARGA DE TIPOS DE VEHÍCULO
         actaViewModel.todosLosTiposVehiculo.observe(viewLifecycleOwner) { listaTipos ->
             val nombresTipos = listaTipos.map { it.nombre }
-            val adapterTipo = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresTipos)
+            val adapterTipo = crearAdapterLimitado(nombresTipos)
             binding.autoCompleteTipoVehiculo.setAdapter(adapterTipo)
+
+            // Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+            binding.autoCompleteTipoVehiculo.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
 
             if (actaViewModel.tipoVehiculo.isNotEmpty()) {
                 binding.autoCompleteTipoVehiculo.setText(actaViewModel.tipoVehiculo, false)
@@ -137,8 +147,11 @@ class VehiculoFragment : Fragment() {
         // 2. CARGA DE MARCAS Y RESTAURACIÓN DE MODELOS
         actaViewModel.todasLasMarcas.observe(viewLifecycleOwner) { listaMarcas ->
             val nombresMarcas = listaMarcas.map { it.nombre }
-            val adapterMarca = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresMarcas)
+            val adapterMarca = crearAdapterLimitado(nombresMarcas)
             binding.autoCompleteMarca.setAdapter(adapterMarca)
+
+            // Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+            binding.autoCompleteMarca.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
 
             if (actaViewModel.marca.isNotEmpty()) {
                 binding.autoCompleteMarca.setText(actaViewModel.marca, false)
@@ -212,14 +225,29 @@ class VehiculoFragment : Fragment() {
             }
         }
 
-        // Ocultar teclado al tocar fuera de los campos
+        // Ocultar teclado al tocar fuera de los campos y quitar focos
         binding.scrollVehiculo.setOnTouchListener { _, _ ->
-            (activity as? MainActivity)?.hideKeyboard()
+            val v = activity?.currentFocus
+            if (v != null && (v is AutoCompleteTextView || v is android.widget.EditText)) {
+                v.clearFocus()
+                binding.contenedorPrincipal.requestFocus()
+                (activity as? MainActivity)?.hideKeyboard()
+            }
             false
         }
 
         // Restaurar valores guardados previamente en el ViewModel
         binding.etDominio.setText(actaViewModel.dominio)
+
+        // 🚀 Restaurar el formato de patente si ya hay un dominio cargado
+        if (actaViewModel.dominio.isNotEmpty()) {
+            if (actaViewModel.dominio.length == 6) {
+                binding.chipPatenteVieja.isChecked = true
+            } else if (actaViewModel.dominio.length >= 7) {
+                binding.chipPatenteNueva.isChecked = true
+            }
+        }
+
         binding.autoCompleteMarca.setText(actaViewModel.marca, false)
         binding.autoCompleteModelo.setText(actaViewModel.modelo, false)
         binding.checkEsPropietario.isChecked = actaViewModel.esPropietario
@@ -235,12 +263,18 @@ class VehiculoFragment : Fragment() {
 
         // Configurar autoscroll y selección
         setupFocusListeners()
+
+        // 🚀 Asegurar que NINGÚN campo tenga foco al entrar (foco al contenedor)
+        binding.contenedorPrincipal.requestFocus()
     }
 
     private fun setupFocusListeners() {
         // AutoCompleteTextViews
         binding.autoCompleteTipoVehiculo.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
+                binding.autoCompleteTipoVehiculo.post {
+                    binding.autoCompleteTipoVehiculo.selectAll()
+                }
                 binding.autoCompleteTipoVehiculo.showDropDown()
                 ejecutarAutoScroll(binding.inputLayoutTipoVehiculo)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
@@ -250,6 +284,9 @@ class VehiculoFragment : Fragment() {
         }
         binding.autoCompleteMarca.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
+                binding.autoCompleteMarca.post {
+                    binding.autoCompleteMarca.selectAll()
+                }
                 binding.autoCompleteMarca.showDropDown()
                 ejecutarAutoScroll(binding.inputMarca)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
@@ -259,6 +296,9 @@ class VehiculoFragment : Fragment() {
         }
         binding.autoCompleteModelo.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
+                binding.autoCompleteModelo.post {
+                    binding.autoCompleteModelo.selectAll()
+                }
                 binding.autoCompleteModelo.showDropDown()
                 ejecutarAutoScroll(binding.inputModelo)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
@@ -324,11 +364,56 @@ class VehiculoFragment : Fragment() {
             listaModelosActuales = db.catalogoDao().obtenerModelosPorMarca(marcaId)
 
             val nombresModelos = listaModelosActuales.map { it.nombre }
-            val adapterModelo = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresModelos)
+            val adapterModelo = crearAdapterLimitado(nombresModelos)
             binding.autoCompleteModelo.setAdapter(adapterModelo)
+
+            // Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+            binding.autoCompleteModelo.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
 
             if (actaViewModel.modelo.isNotEmpty()) {
                 binding.autoCompleteModelo.setText(actaViewModel.modelo, false)
+            }
+        }
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
             }
         }
     }

@@ -33,13 +33,15 @@ import com.chivilcoyactas.TipoRolInvolucradoEntity
         TipoModeloEntity::class,
         TipoProvinciaEntity::class,
         TipoLocalidadEntity::class,
+        TipoCpostalEntity::class,
         TipoActaEntity::class,
         QuincenaEntity::class,
         CheckVehicularEntity::class,
         TipoVehiculoCheckEntity::class,
         TipoRolInvolucradoEntity::class,
+        PaisEntity::class,
     ],
-    version = 20,
+    version = 27,
     exportSchema = false // Recomendado para proyectos simples
 )
 

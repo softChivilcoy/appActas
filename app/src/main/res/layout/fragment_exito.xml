@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center_horizontal"
+    android:background="?android:attr/windowBackground"
     android:padding="24dp">
 
     <TextView
@@ -74,6 +75,16 @@
                 android:textColor="#16A34A"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp"/>
+
+            <TextView
+                android:id="@+id/tvTokenValidacion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TOKEN: AB12CD34"
+                android:textColor="#16A34A"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 data class CabeceraDto(
     @SerializedName("id_local") val idLocal: Long,
+    @SerializedName("idServer") val idServer: Long?,             // 🚀 AGREGADO: Para evitar duplicados en el server
     @SerializedName("nro_acta") val nroActa: String,
     @SerializedName("tipoacta") val tipoActa: Int,
     @SerializedName("tipo_formulario") val tipoFormulario: String,
@@ -25,8 +26,10 @@ data class CabeceraDto(
     @SerializedName("detallefalta") val detalleFalta: String?,
     @SerializedName("observaciones") val observaciones: String?, // 🚀 Agregado
     @SerializedName("tipo_inmueble") val tipoInmueble: String?,   // 🚀 Agregado
+    @SerializedName("estado_envio") val estadoEnvio: String,      // 🚀 AGREGADO: "ENVIADA" o "BORRADOR"
     @SerializedName("serie") val serie: String,
     @SerializedName("punto_emision_id") val puntoEmisionId: Int?,
     @SerializedName("anio") val anio: Int,
     @SerializedName("secuencia") val secuencia: Int,
+    @SerializedName("codigo_validacion") val codigoValidacion: String?,
 )

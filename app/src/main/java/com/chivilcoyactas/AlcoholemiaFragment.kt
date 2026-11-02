@@ -8,7 +8,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.CheckBox
+import android.widget.Filter
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.widget.doOnTextChanged
@@ -49,6 +51,9 @@ class AlcoholemiaFragment : Fragment() {
         binding.scrollAlcoholemia.post {
             binding.scrollAlcoholemia.scrollTo(0, 0)
         }
+
+        // Reset inicial de foco para hardware 3nStar
+        binding.rootAlcoholemia.requestFocus()
 
         // Aplicar padding dinámico según el teclado
         ViewCompat.setOnApplyWindowInsetsListener(binding.scrollAlcoholemia) { v, insets ->
@@ -233,13 +238,13 @@ class AlcoholemiaFragment : Fragment() {
                 if (listaEquipos.isNotEmpty()) {
                     val itemsDropdown = listaEquipos.map { "${it.marca ?: "Sin Marca"} (Serie: ${it.nroSerie ?: "S/C"})" }
 
-                    val context = context ?: return@withContext
-                    val adapter = ArrayAdapter(
-                        context,
-                        android.R.layout.simple_dropdown_item_1line,
-                        itemsDropdown
-                    )
+                    val adapter = crearAdapterLimitado(itemsDropdown)
                     binding.spinnerAlcoMarca.setAdapter(adapter)
+
+                    // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+                    binding.spinnerAlcoMarca.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
+
+                    binding.spinnerAlcoMarca.threshold = 1
 
                     binding.spinnerAlcoMarca.setOnItemClickListener { _, _, position, _ ->
                         if (position in listaEquipos.indices) {
@@ -472,6 +477,9 @@ class AlcoholemiaFragment : Fragment() {
         // AutoCompleteTextViews
         binding.spinnerAlcoMarca.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
+                binding.spinnerAlcoMarca.post {
+                    binding.spinnerAlcoMarca.selectAll()
+                }
                 (v as? android.widget.AutoCompleteTextView)?.showDropDown()
                 ejecutarAutoScroll(v)
                 v.setBackgroundResource(R.drawable.bg_edittext_focused)
@@ -509,6 +517,48 @@ class AlcoholemiaFragment : Fragment() {
             val targetY = rect.top - offsetTop
             binding.scrollAlcoholemia.smoothScrollTo(0, targetY.coerceAtLeast(0))
         }, 500)
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {

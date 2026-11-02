@@ -13,9 +13,11 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.liveData
+import com.chivilcoyactas.utils.FileDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 enum class TipoFormulario { TRANSITO, INSPECCION }
 
@@ -31,6 +33,11 @@ data class PersonaVinculada(
     var provincia: String = "BUENOS AIRES",
     var localidad: String = "CHIVILCOY",
     var cp: String = "6620",
+    var pais: String = "ARGENTINA",
+    var idCalle: Int? = null,
+    var idProvincia: Int? = null,
+    var idLocalidad: Int? = null,
+    var idPais: Int? = 32,
     var tipoVinculo: String? = null,
     var firmaPath: String? = null
 )
@@ -46,9 +53,12 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         }
         set(value) {}
     var firmaInfractorPath: String? = null
+    var firmaInspectorPath: String? = null
+    var firmaInspectorBase64: String? = null // 🚀 Firma del perfil cargada desde el login
     var infractorSeNiegaAFirmar: Boolean = false
     var procTipoInmueble: String = ""
     var idActaLocal: Long = 0L
+    var idServer: Long? = null // 🚀 Agregado: ID que devuelve Laravel al sincronizar
 
     // Instanciamos Room usando el 'application' que ahora sí tenemos disponible
     private val db = AppDatabase.getDatabase(application)
@@ -80,9 +90,17 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-    // 1. Exponemos las provincias para el primer combo
+    // 1. Exponemos los países y provincias
+    val todosLosPaises = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
+        emit(catalogoDao.obtenerPaises())
+    }
+
     val todasLasProvincias = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
         emit(catalogoDao.obtenerProvincias())
+    }
+
+    fun obtenerProvinciasPorPais(paisId: Int) = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
+        emit(catalogoDao.obtenerProvinciasPorPais(paisId))
     }
 
     val todosLosRolesInvolucrado = androidx.lifecycle.liveData(viewModelScope.coroutineContext) {
@@ -174,7 +192,8 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var catManzanaLet: String = ""
     var catParcelaNro: String = ""
     var catParcelaLet: String = ""
-    var catSubparcela: String = ""
+    var catSubparcelaNro: String = ""
+    var catSubparcelaLet: String = ""
     var catUF: String = ""
     var catPartidaMunicipal: String = ""
 
@@ -190,6 +209,11 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var provinciaInfractor: String = "BUENOS AIRES"
     var localidadInfractor: String = "CHIVILCOY"
     var cpInfractor: String = "6620"
+    var paisInfractor: String = "ARGENTINA"
+    var idCalleInfractor: Int? = null
+    var idProvinciaInfractor: Int? = null
+    var idLocalidadInfractor: Int? = null
+    var idPaisInfractor: Int? = null
 
     var vinculoLugar: String = "" // Guardará los chips seleccionados "Propietario, Encargado"
 
@@ -232,6 +256,11 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
                     provincia = provinciaInfractor,
                     localidad = localidadInfractor,
                     cp = cpInfractor,
+                    pais = paisInfractor,
+                    idProvincia = idProvinciaInfractor,
+                    idLocalidad = idLocalidadInfractor,
+                    idCalle = idCalleInfractor,
+                    idPais = idPaisInfractor,
                     tipoVinculo = "", // Se setea abajo por prioridad
                     firmaPath = firmaInfractorPath
                 )
@@ -324,7 +353,9 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
 
 
     //  --- PASO 7 : TESTIGOS --
+    var Testigo1Pais: String = "ARGENTINA"
     var Testigo1Provincia: String = "BUENOS AIRES"
+    var Testigo2Pais: String = "ARGENTINA"
     var Testigo2Provincia: String = "BUENOS AIRES"
 
     var Testigo1Dni: String = ""
@@ -333,6 +364,10 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var Testigo1CalleNro: String = ""
     var Testigo1Localidad: String = "CHIVILCOY"
     var Testigo1Cp: String = ""
+    var Testigo1IdProvincia: Int? = null
+    var Testigo1IdLocalidad: Int? = null
+    var Testigo1IdPais: Int? = null
+    var Testigo1IdCalle: Int? = null
     var Testigo1FirmaPath: String? = null
 
     var Testigo2Dni: String = ""
@@ -341,6 +376,10 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
     var Testigo2CalleNro: String = ""
     var Testigo2Localidad: String = "CHIVILCOY"
     var Testigo2Cp: String = ""
+    var Testigo2IdProvincia: Int? = null
+    var Testigo2IdLocalidad: Int? = null
+    var Testigo2IdPais: Int? = null
+    var Testigo2IdCalle: Int? = null
     var Testigo2FirmaPath: String? = null
 
 
@@ -389,6 +428,110 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 🚀 DESCARGA BAJO DEMANDA (Lazy Loading)
+     * Escanea el acta actual en Room y descarga archivos multimedia (fotos/firmas) que tengan URL remota
+     * pero no tengan ruta local o el archivo no exista.
+     */
+    fun descargarArchivosSiFaltan(actaId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val actaCompleta = db.actaDao().obtenerActaCompleta(actaId) ?: return@launch
+
+            // 1. Descargar Fotos
+            actaCompleta.media.forEach { media ->
+                if (!media.urlRemota.isNullOrBlank()) {
+                    val file = File(media.rutaArchivo)
+                    if (!file.exists()) {
+                        val rutaLocal = FileDownloader.descargarYGuardar(
+                            getApplication(),
+                            media.urlRemota,
+                            "actas"
+                        )
+                        if (rutaLocal != null) {
+                            db.actaDao().actualizarRutaLocalMedia(media.id, rutaLocal)
+                            
+                            // 📸 Si el acta descargada es la que el usuario tiene abierta, 
+                            // cargamos el Bitmap y lo agregamos a la lista en vivo.
+                            if (actaId == idActaLocal) {
+                                try {
+                                    val bitmap = BitmapFactory.decodeFile(rutaLocal)
+                                    if (bitmap != null) {
+                                        withContext(Dispatchers.Main) {
+                                            val listaActual = _listaFotos.value?.toMutableList() ?: mutableListOf()
+                                            
+                                            // 🚀 EVITAR DUPLICADOS: Comprobar si ya existe un bitmap con los mismos bytes
+                                            // (Opcional, pero para mayor seguridad en Lazy Loading)
+                                            val yaExiste = listaActual.any { it.sameAs(bitmap) }
+                                            if (!yaExiste) {
+                                                listaActual.add(bitmap)
+                                                _listaFotos.value = listaActual
+                                            }
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("ActaViewModel", "Error al decodificar foto descargada: ${e.message}")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Descargar Firmas de Infractores/Vinculados
+            actaCompleta.infractores.forEach { inf ->
+                if (!inf.firmaUrlRemota.isNullOrBlank()) {
+                    val file = inf.firmaPath?.let { File(it) }
+                    if (file == null || !file.exists()) {
+                        val rutaLocal = FileDownloader.descargarYGuardar(
+                            getApplication(),
+                            inf.firmaUrlRemota,
+                            "firmas"
+                        )
+                        if (rutaLocal != null) {
+                            db.actaDao().actualizarRutaFirmaInfractor(inf.id, rutaLocal)
+                            
+                            // ✍️ Actualizar firma en el ViewModel si es la acta actual
+                            if (actaId == idActaLocal) {
+                                withContext(Dispatchers.Main) {
+                                    if (tipoFormulario == TipoFormulario.TRANSITO) {
+                                        if (dniInfractor == inf.dni) firmaInfractorPath = rutaLocal
+                                    } else {
+                                        datosPersonasVinculadas[inf.vinculoLugar ?: ""]?.firmaPath = rutaLocal
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Descargar Firmas de Testigos
+            actaCompleta.testigos.forEach { testigo ->
+                if (!testigo.firmaUrlRemota.isNullOrBlank()) {
+                    val file = testigo.firmaPath?.let { File(it) }
+                    if (file == null || !file.exists()) {
+                        val rutaLocal = FileDownloader.descargarYGuardar(
+                            getApplication(),
+                            testigo.firmaUrlRemota,
+                            "firmas"
+                        )
+                        if (rutaLocal != null) {
+                            db.actaDao().actualizarRutaFirmaTestigo(testigo.id, rutaLocal)
+                            
+                            // ✍️ Actualizar firmas de testigos en el ViewModel si es la acta actual
+                            if (actaId == idActaLocal) {
+                                withContext(Dispatchers.Main) {
+                                    if (Testigo1Dni == testigo.dniOriginal) Testigo1FirmaPath = rutaLocal
+                                    if (Testigo2Dni == testigo.dniOriginal) Testigo2FirmaPath = rutaLocal
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
     /*fun agregarFoto(bitmap: Bitmap) {
         // Redimensionamos a un tamaño razonable para un acta (ej: 1024px el lado más largo)
@@ -416,6 +559,7 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun resetearActa() {
         idActaLocal = 0L
+        idServer = null
         secuenciaActual = 0
         serie = "E"
         anio = 0
@@ -426,16 +570,21 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         fecha = ""
         hora = ""
 
+        firmaInfractorPath = null
+        firmaInspectorPath = null
+        firmaInspectorBase64 = null
+        infractorSeNiegaAFirmar = false
+        procTipoInmueble = ""
+
         // MODIFICACIÓN ACÁ:
         // Si NO es un operativo, limpiamos la calle.
         // Si ES un operativo, la dejamos para la próxima acta.
         if (!esOperativo) {
             calle = ""
-            altura = 0
+            altura = null // 🚀 Corregido de 0 a null
             ubTieneDetalleAdicional = false
             ubDepto = ""
             ubReferencia = ""
-            // Si querés que también guarde la lat/long del operativo:
             latitud = 0.0
             longitud = 0.0
         }
@@ -464,7 +613,8 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         catManzanaLet = ""
         catParcelaNro = ""
         catParcelaLet = ""
-        catSubparcela = ""
+        catSubparcelaNro = ""
+        catSubparcelaLet = ""
         catUF = ""
         catPartidaMunicipal = ""
         procRefActa = ""
@@ -478,6 +628,11 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         provinciaInfractor = "BUENOS AIRES"
         localidadInfractor = "CHIVILCOY"
         cpInfractor = "6620"
+        idProvinciaInfractor = null
+        idLocalidadInfractor = null
+        idPaisInfractor = null
+        paisInfractor = "ARGENTINA"
+        idCalleInfractor = null
         calleInfractor = ""
         alturaInfractor = ""
         vinculoLugar = ""
@@ -509,12 +664,22 @@ class ActaViewModel(application: Application) : AndroidViewModel(application) {
         Testigo1CalleNro = ""
         Testigo1Localidad = ""
         Testigo1Cp = ""
+        Testigo1IdProvincia = null
+        Testigo1IdLocalidad = null
+        Testigo1IdPais = 32
+        Testigo1Pais = "ARGENTINA"
+        Testigo1IdCalle = null
         Testigo2Dni = ""
         Testigo2Nombre = ""
         Testigo2Calle = ""
         Testigo2CalleNro = ""
         Testigo2Localidad = ""
         Testigo2Cp = ""
+        Testigo2IdProvincia = null
+        Testigo2IdLocalidad = null
+        Testigo2IdPais = 32
+        Testigo2Pais = "ARGENTINA"
+        Testigo2IdCalle = null
         seNiegaAFirmar = false
         observaciones = ""
         // Para limpiar un LiveData de tipo MutableList:

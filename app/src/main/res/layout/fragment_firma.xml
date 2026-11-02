@@ -1,172 +1,250 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootFirma"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?android:attr/windowBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <!-- VISTA 1: PREPARACIÓN (Solo la ve el Inspector) -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutPreparacionFirma"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
         android:visibility="visible">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="✍️ CIERRE DE ACTA"
-            android:textColor="#33BB66"
-            android:textStyle="bold"
-            android:textSize="18sp" />
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintBottom_toTopOf="@id/bottomBarPrep"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="✍️ CIERRE DE ACTA"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    android:text="Revise los datos antes de pasar al modo firma."
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="Seleccione quién va a firmar:"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <!-- Contenedor para botones dinámicos con opción de borrado -->
+                <LinearLayout
+                    android:id="@+id/containerBotonesFirmas"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="vertical">
+                    <!-- Se poblará dinámicamente desde el Fragment -->
+                </LinearLayout>
+
+                <com.google.android.material.checkbox.MaterialCheckBox
+                    android:id="@+id/checkSeNiegaAFirmar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="24dp"
+                    android:text="El infractor se niega a firmar"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <com.google.android.material.divider.MaterialDivider
+            android:id="@+id/dividerPrep"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Revise los datos antes de pasar al modo firma."
-            android:textSize="18sp"
-            android:layout_marginBottom="16dp"/>
+            app:layout_constraintBottom_toTopOf="@id/bottomBarPrep" />
 
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Seleccione quién va a firmar:"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="#33BB66"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- Contenedor para botones dinámicos con opción de borrado -->
         <LinearLayout
-            android:id="@+id/containerBotonesFirmas"
+            android:id="@+id/bottomBarPrep"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="16dp">
-            <!-- Se poblará dinámicamente desde el Fragment -->
+            android:background="?android:attr/windowBackground"
+            android:padding="16dp"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnIrAFirmar"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:backgroundTint="?attr/colorPrimary"
+                android:text="MODO FIRMA"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_signature"
+                app:iconGravity="textStart"
+                app:iconSize="24dp"
+                app:iconTint="@android:color/white" />
         </LinearLayout>
-
-        <CheckBox
-            android:id="@+id/checkSeNiegaAFirmar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="El infractor se niega a firmar"
-            android:textSize="16sp"
-            android:layout_marginBottom="24dp" />
-
-        <Button
-            android:id="@+id/btnIrAFirmar"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="SIGUIENTE"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#33BB66"
-            android:textColor="@android:color/white"
-            app:icon="@drawable/ic_signature"
-            app:iconTint="@android:color/white" />
-        <!-- ic_signature sería un icono de una lapicera -->
-
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- VISTA 2: MODO CONFORMIDAD (La ve el Infractor) -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutModoFirma"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:background="#FFFFFF"
-        android:visibility="invisible">
+        android:background="?android:attr/windowBackground"
+        android:visibility="gone">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📝 RESUMEN DE INFRACCIÓN"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:gravity="center"
-            android:textColor="#33BB66"/>
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintBottom_toTopOf="@id/bottomBarFirma"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Mini Resumen para validez legal -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#F1F3F4"
-            app:cardElevation="0dp"
-            android:layout_marginVertical="8dp">
-            <TextView
-                android:id="@+id/tvResumenActa"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:text="Cargando datos..."
-                android:textColor="#333333"
-                android:textSize="13sp" />
-        </com.google.android.material.card.MaterialCardView>
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:gravity="center"
+                    android:text="📝 RESUMEN DE INFRACCIÓN"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- Mini Resumen para validez legal -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <TextView
+                        android:id="@+id/tvResumenActa"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="12dp"
+                        android:text="Cargando datos..."
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="14sp" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:text="Al firmar, usted se da por notificado de la presente infracción. La firma no implica aceptación de la culpa, sino recepción de la notificación."
+                    android:textSize="12sp"
+                    android:textStyle="italic" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="4dp"
+                    app:strokeColor="?attr/colorPrimary"
+                    app:strokeWidth="2dp">
+
+                    <com.github.gcacace.signaturepad.views.SignaturePad
+                        android:id="@+id/signaturePad"
+                        android:layout_width="match_parent"
+                        android:layout_height="300dp"
+                        android:background="@android:color/white"
+                        android:saveEnabled="false" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnLimpiarFirma"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:layout_marginTop="8dp"
+                    android:text="BORRAR FIRMA"
+                    android:textColor="#D32F2F"
+                    android:textSize="14sp"
+                    app:icon="@android:drawable/ic_menu_revert"
+                    app:iconTint="#D32F2F" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <com.google.android.material.divider.MaterialDivider
+            android:id="@+id/dividerFirma"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Al firmar, usted se da por notificado de la presente infracción. La firma no implica aceptación de la culpa, sino recepción de la notificación."
-            android:textSize="11sp"
-            android:textStyle="italic"
-            android:layout_marginBottom="8dp"/>
-
-        <Button
-            android:id="@+id/btnVolverDeFirma"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="VOLVER"
-            app:icon="@drawable/ic_arrow_back_thin"
-            app:iconGravity="textStart"
-            android:layout_gravity="start"
-            android:layout_marginBottom="4dp"/>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:strokeColor="#000000"
-            app:strokeWidth="2dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <com.github.gcacace.signaturepad.views.SignaturePad
-                android:id="@+id/signaturePad"
-                android:layout_width="match_parent"
-                android:layout_height="280dp"
-                android:background="@android:color/white"
-                android:saveEnabled="false"/>
-        </com.google.android.material.card.MaterialCardView>
+            app:layout_constraintBottom_toTopOf="@id/bottomBarFirma" />
 
         <LinearLayout
+            android:id="@+id/bottomBarFirma"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
-                android:id="@+id/btnLimpiarFirma"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="BORRAR"
-                android:textColor="#B71C1C" />
+            android:background="?android:attr/windowBackground"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            app:layout_constraintBottom_toBottomOf="parent">
 
-            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVolverDeFirma"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="12dp"
+                android:layout_weight="1"
+                android:text="VOLVER"
+                android:textSize="14sp"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_arrow_back_thin"
+                app:iconGravity="textStart" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnFinalizarActa"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="CONFIRMAR FIRMA"
+                android:layout_width="0dp"
+                android:layout_height="64dp"
+                android:layout_weight="2"
+                android:backgroundTint="?attr/colorPrimary"
                 android:enabled="false"
-                android:visibility="gone"
-                android:backgroundTint="#33BB66"
-                android:textColor="@android:color/white"
-                android:layout_marginTop="16dp"/>
+                android:text="CONFIRMAR FIRMA"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="visible"
+                app:cornerRadius="12dp" />
         </LinearLayout>
-
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

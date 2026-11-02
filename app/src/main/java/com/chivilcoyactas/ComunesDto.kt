@@ -6,6 +6,7 @@ import com.google.gson.annotations.SerializedName
 data class InfractorDto(
     @SerializedName("nombrecompleto") val nombreCompleto: String,
     @SerializedName("dni") val dni: String,
+    @SerializedName("pais") val pais: String,             // 🚀 AGREGADO
     @SerializedName("provincia") val provincia: String,   // 🚀 AGREGADO
     @SerializedName("localidad") val localidad: String,   // 🚀 AGREGADO
     @SerializedName("cp") val cp: String,                 // 🚀 AGREGADO
@@ -28,9 +29,12 @@ data class FaltaDto(
 data class TestigoDto(
     @SerializedName("dnioriginal") val dniOriginal: String,             // 👈 Sacados los guiones bajos
     @SerializedName("nombreoriginal") val nombreOriginal: String,         // 👈 Sacados los guiones bajos
+    @SerializedName("paisoriginal") val paisOriginal: String,             // 🚀 AGREGADO
     @SerializedName("domiciliooriginal") val domicilioOriginal: String,   // 👈 Sacados los guiones bajos
     @SerializedName("provinciaoriginal") val provinciaOriginal: String,
     @SerializedName("localidadoriginal") val localidadOriginal: String,   // 👈 Sacados los guiones bajos
+    @SerializedName("calleoriginal") val calleOriginal: String? = null,
+    @SerializedName("alturacalle") val alturaCalle: String? = null,        // 🚀 NUEVO CAMPO
     @SerializedName("cporiginal") val cpOriginal: String,                 // 👈 Sacados los guiones bajos
     @SerializedName("firmaPath") val firmaPath: String? = null
 )

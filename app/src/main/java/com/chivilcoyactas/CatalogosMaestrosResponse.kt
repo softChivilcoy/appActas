@@ -10,7 +10,9 @@ data class CatalogosMaestrosResponse(
     @SerializedName("tipo_marcas") val tipoMarcas: List<TipoMarcaDto>,
     @SerializedName("tipo_modelos") val tipoModelos: List<TipoModeloDto>,
     @SerializedName("tipo_provincias") val tipoProvincias: List<TipoProvinciaDto>,
+    @SerializedName("paises") val paises: List<PaisDto>?,
     @SerializedName("tipo_localidades") val tipoLocalidades: List<TipoLocalidadDto>,
+    @SerializedName("tipo_cpostal") val tipoCpostal: List<TipoCpostaldDto>,
     @SerializedName("tipos_acta") val tiposActa: List<TipoActaDto>,
     @SerializedName("quincenas") val quincenas: List<QuincenaDto>,
     @SerializedName("categorias_inspeccion") val categoriasInspeccion: List<CategoriaInspeccionDto>?,
@@ -61,6 +63,12 @@ data class TipoModeloDto(
 
 data class TipoProvinciaDto(
     @SerializedName("id") val id: Int,
+    @SerializedName("nombre") val nombre: String,
+    @SerializedName("pais_id") val idPais: Int? // 👈 Agregado para soportar relación con paises
+)
+
+data class PaisDto(
+    @SerializedName("id") val id: Int,
     @SerializedName("nombre") val nombre: String
 )
 
@@ -68,6 +76,12 @@ data class TipoLocalidadDto(
     @SerializedName("id") val id: Int,
     @SerializedName("nombre") val nombre: String,
     @SerializedName("provincia_id") val idProvincia: Int // 👈 Mapea 'provincia_id'
+)
+
+data class TipoCpostaldDto(
+    @SerializedName("id") val id: Int,
+    @SerializedName("codigo") val codigo: String,
+    @SerializedName("localidad_id") val idLocalidad: Int // 👈 Mapea 'localidad_id'
 )
 
 data class TipoActaDto(

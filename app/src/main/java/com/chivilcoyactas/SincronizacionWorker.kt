@@ -30,12 +30,13 @@ class SincronizacionWorker(
         var actaIdLocal = inputData.getLong("ACTA_ID_LOCAL", -1L)
 
         if (actaIdLocal == -1L) {
-            val primeraPendiente = db.actaDao().obtenerActasPorEstado("PENDIENTE").firstOrNull()
+            val primeraPendiente = db.actaDao().obtenerActasPendientes().firstOrNull()
+
             if (primeraPendiente == null) {
                 Log.d("WORKER_SINCRO", "No hay actas pendientes de sincronizar.")
                 return@withContext Result.success()
             }
-            actaIdLocal = primeraPendiente.idLocal
+            actaIdLocal = primeraPendiente.acta.idLocal
         }
 
         Log.d("WORKER_SINCRO", "Iniciando sincronización atómica para el acta local #$actaIdLocal...")
@@ -112,17 +113,33 @@ class SincronizacionWorker(
             )
 
             if (response.isSuccessful && response.body()?.success == true) {
-                Log.d("WORKER_SINCRO", "✅ Acta #$actaIdLocal enviada con éxito a Laravel.")
+                val serverId = response.body()?.idServer
+                Log.d("WORKER_SINCRO", "✅ Acta #$actaIdLocal enviada con éxito a Laravel. Server ID: $serverId")
 
-                // Borramos de Room
-                db.actaDao().eliminarActaLocalCompleta(actaIdLocal)
-                Log.d("WORKER_SINCRO", "Acta local #$actaIdLocal eliminada de Room.")
+                if (actaCompletaDb.cabecera.estadoEnvio == "BORRADOR") {
+                    db.actaDao().actualizarEstadoEnvio(actaIdLocal, "BORRADOR", serverId)
+                    Log.d("WORKER_SINCRO", "Borrador actualizado con idServer $serverId.")
+                } else {
+                    // Borramos de Room
+                    db.actaDao().eliminarActaLocalCompleta(actaIdLocal)
+                    Log.d("WORKER_SINCRO", "Acta local #$actaIdLocal eliminada de Room.")
+                }
 
                 return@withContext Result.success()
             } else if (response.code() == 401) {
                 // 🔒 Token vencido / Sesión inválida: No borramos nada de Room y abortamos el reintento
                 Log.e("WORKER_SINCRO", "🔒 HTTP 401 Unauthorized. Token vencido o sesión cerrada.")
                 return@withContext Result.failure()
+            } else if (response.code() == 500) {
+                val errorBody = response.errorBody()?.string() ?: ""
+                if (errorBody.contains("23505") || errorBody.contains("Unique violation")) {
+                    Log.e("WORKER_SINCRO", "⚠️ Error 500: Acta duplicada en servidor (SQLSTATE[23505]).")
+                    Log.d("WORKER_SINCRO", "Eliminando acta local #$actaIdLocal para evitar bucle de reintentos.")
+                    db.actaDao().eliminarActaLocalCompleta(actaIdLocal)
+                    return@withContext Result.success() // Marcamos como éxito para que WorkManager no reintente
+                }
+                Log.e("WORKER_SINCRO", "❌ Error 500 en servidor para acta #$actaIdLocal: $errorBody")
+                return@withContext Result.retry()
             } else {
                 Log.e("WORKER_SINCRO", "❌ Servidor rechazó el acta #$actaIdLocal. HTTP Status: ${response.code()}")
                 // Reintentamos atómicamente esta acta mediante Exponential Backoff

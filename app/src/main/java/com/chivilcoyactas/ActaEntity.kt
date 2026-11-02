@@ -17,6 +17,8 @@ data class ActaEntity(
     val estadoEnvio: String = "PENDIENTE",   // PENDIENTE, ENVIADO, ERROR
     val idHojaRuta: Int? = null,             // Solo para Inspección General
     val firmaInspectorBase64: String? = null,
+    val firmaInspectorPath: String? = null, // 🚀 Ruta del archivo PNG de la firma
+
 
     // 🚀 NUEVOS CAMPOS DE UBICACIÓN Y CONTEXTO MUNICIPAL
     val esOperativo: Boolean = false,        // True si pertenece a un operativo especial
@@ -34,4 +36,5 @@ data class ActaEntity(
     val puntoEmisionId: Int = 0,
     val anio: Int,
     val secuencia: Int,
+    val codigoValidacion: String? = null,
 )

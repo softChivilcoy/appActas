@@ -49,13 +49,16 @@ class ExitoFragment : Fragment() {
         // 2. Mostrar datos en pantalla (Ahora binding ya no es nulo)
         binding.tvNroActaFinal.text = actaViewModel.nroActa
         binding.tvIdSistema.text = "Secuencia: ${actaViewModel.secuenciaActual}"
+        binding.tvTokenValidacion.text = "Token: ${actaViewModel.codigoValidacion}"
         //binding.tvIdSistema.text = "ID Sistema: ${actaViewModel.idSistema}"
 
         // 3. Botón Nueva Acta
         binding.btnNuevaActa.setOnClickListener {
-            actaViewModel.resetearActa() // O limpiarDatos(), según como lo llamaste
+            val tipoActual = actaViewModel.tipoFormulario // Preservamos el tipo antes del reset
+            actaViewModel.resetearActa()
+            actaViewModel.tipoFormulario = tipoActual // Lo restauramos para que el siguiente flujo sea coherente
 
-            if (actaViewModel.tipoFormulario == TipoFormulario.INSPECCION) {
+            if (tipoActual == TipoFormulario.INSPECCION) {
                 // --- FLUJO INSPECCIÓN ---
                 // Ocultamos la barra de progreso porque la Hoja de Ruta es un paso "0"
                 (activity as? MainActivity)?.findViewById<View>(R.id.progressBar)?.visibility = View.GONE

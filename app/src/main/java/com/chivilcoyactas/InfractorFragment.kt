@@ -21,6 +21,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.Filter
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -66,6 +67,9 @@ class InfractorFragment : Fragment() {
         binding.scrollInfractor.post { binding.scrollInfractor.scrollTo(0, 0) }
 
         (activity as? MainActivity)?.actualizarProgreso(3)
+
+        // Reset inicial de foco para hardware 3nStar
+        binding.rootInfractor.requestFocus()
 
         // 1. Ajuste automático del ScrollView según la altura REAL del teclado
         ViewCompat.setOnApplyWindowInsetsListener(binding.scrollInfractor) { v, insets ->
@@ -160,11 +164,7 @@ class InfractorFragment : Fragment() {
                         item.etNombre.requestFocus()
                         return@setOnClickListener
                     }
-                    if (item.etDni.text.isNullOrBlank()) {
-                        item.etDni.error = "Campo Obligatorio"
-                        item.etDni.requestFocus()
-                        return@setOnClickListener
-                    }
+                    // Se elimina la validación obligatoria de etDni
                 }
             }
 
@@ -188,6 +188,7 @@ class InfractorFragment : Fragment() {
 
         binding.scrollInfractor.setOnTouchListener { _, _ ->
             (activity as? MainActivity)?.hideKeyboard()
+            binding.rootInfractor.requestFocus()
             false
         }
 
@@ -348,7 +349,11 @@ class InfractorFragment : Fragment() {
         val locInicial = datos.localidad.ifEmpty { "CHIVILCOY" }
         
         item.autoCompleteProvincia.setText(provInicial, false)
+        item.autoCompleteProvincia.tag = datos.idProvincia
+        item.autoCompletePais.setText(datos.pais.ifEmpty { "ARGENTINA" }, false)
+        item.autoCompletePais.tag = datos.idPais ?: 32
         item.autoCompleteLocalidad.setText(locInicial, false)
+        item.autoCompleteLocalidad.tag = datos.idLocalidad
         item.etCP.setText(datos.cp.ifEmpty { "6620" })
 
         val autoFilterUpper = InputFilter.AllCaps()
@@ -357,9 +362,13 @@ class InfractorFragment : Fragment() {
         item.etCalle.filters = arrayOf(autoFilterUpper)
         item.etCalle.dropDownVerticalOffset = -20
         val callesChivilcoy = resources.getStringArray(R.array.calles_chivilcoy_list)
-        val adapterCalles = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, callesChivilcoy)
+        
+        // 🚀 ADAPTER PERSONALIZADO CON FILTRO "CONTAINS" CORREGIDO
+        val adapterCalles = crearAdapterLimitado(callesChivilcoy.toList())
         
         item.etCalle.setAdapter(adapterCalles)
+        // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+        item.etCalle.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
         // Forzamos que sea editable y muestre el teclado normalmente como en Testigos.kt
         item.etCalle.keyListener = android.text.method.TextKeyListener.getInstance()
         item.etCalle.threshold = 1
@@ -426,10 +435,11 @@ class InfractorFragment : Fragment() {
         }
 
         val actualizarResumen = {
+            val pa = item.autoCompletePais.text.toString()
             val p = item.autoCompleteProvincia.text.toString()
             val l = item.autoCompleteLocalidad.text.toString()
             val c = item.etCP.text.toString()
-            item.tvUbicacionResumen.text = "$l, $p (CP $c)"
+            item.tvUbicacionResumen.text = "$l, $p, $pa (CP $c)"
         }
 
         actualizarResumen()
@@ -442,22 +452,84 @@ class InfractorFragment : Fragment() {
                 val localidades = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerLocalidadesPorProvincia(provinciaId)
                 val nombresLocalidades = localidades.map { it.nombre.uppercase() }
                 
-                val adapterLocalidad = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresLocalidades)
+                val adapterLocalidad = crearAdapterLimitado(nombresLocalidades)
                 item.autoCompleteLocalidad.setAdapter(adapterLocalidad)
                 item.autoCompleteLocalidad.threshold = 1
             }
         }
 
-        // 2. Configuración de PROVINCIAS (Combo reactivo)
+        fun cargarProvincias(paisId: Int) {
+            lifecycleScope.launch {
+                val provincias = AppDatabase.getDatabase(requireContext()).catalogoDao().obtenerProvinciasPorPais(paisId)
+                val nombresProvincias = provincias.map { it.nombre.uppercase() }
+                val adapterProvincia = crearAdapterLimitado(nombresProvincias)
+                item.autoCompleteProvincia.setAdapter(adapterProvincia)
+            }
+        }
+
+        // 2. Configuración de PAISES
+        actaViewModel.todosLosPaises.observe(viewLifecycleOwner) { listaPaises ->
+            val nombresPaises = listaPaises.map { it.nombre.uppercase() }
+            val adapterPais = crearAdapterLimitado(nombresPaises)
+            item.autoCompletePais.setAdapter(adapterPais)
+
+            val dropHeight = (200 * resources.displayMetrics.density).toInt()
+            item.autoCompletePais.dropDownHeight = dropHeight
+        }
+
+        item.autoCompletePais.setOnItemClickListener { parent, _, position, _ ->
+            val paisSeleccionado = parent.getItemAtPosition(position).toString().uppercase()
+            val objetoPais = actaViewModel.todosLosPaises.value?.find { it.nombre.equals(paisSeleccionado, ignoreCase = true) }
+            item.autoCompletePais.tag = objetoPais?.id
+            
+            item.autoCompleteProvincia.setText("", false)
+            item.autoCompleteProvincia.tag = null
+            item.autoCompleteLocalidad.setText("", false)
+            item.autoCompleteLocalidad.tag = null
+            
+            objetoPais?.id?.let { cargarProvincias(it) }
+            actualizarResumen()
+            item.autoCompleteProvincia.requestFocus()
+            (item.autoCompleteProvincia as? AutoCompleteTextView)?.showDropDown()
+        }
+
+        // 🚀 Resetear niveles inferiores al cambiar texto manualmente del País
+        item.autoCompletePais.doAfterTextChanged {
+            if (item.autoCompletePais.hasFocus()) {
+                item.autoCompletePais.tag = null
+                item.autoCompleteProvincia.setText("", false)
+                item.autoCompleteProvincia.tag = null
+                item.autoCompleteLocalidad.setText("", false)
+                item.autoCompleteLocalidad.tag = null
+            }
+            actualizarResumen()
+        }
+
+        // 3. Configuración de PROVINCIAS (Combo reactivo)
         actaViewModel.todasLasProvincias.observe(viewLifecycleOwner) { listaProvincias ->
             val nombresProvincias = listaProvincias.map { it.nombre.uppercase() }
-            val adapterProvincia = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresProvincias)
+            val adapterProvincia = crearAdapterLimitado(nombresProvincias)
             item.autoCompleteProvincia.setAdapter(adapterProvincia)
+
+            // 🚀 Limitar la altura física del dropdown para mostrar ~4 items y habilitar scroll
+            val dropHeight = (200 * resources.displayMetrics.density).toInt()
+            item.autoCompleteProvincia.dropDownHeight = dropHeight
+            item.autoCompleteLocalidad.dropDownHeight = dropHeight
+            item.etCalle.dropDownHeight = dropHeight
 
             // Si es la carga inicial y el campo está vacío, nos aseguramos de cargar localidades de BA
             if (item.autoCompleteProvincia.text.toString().uppercase() == "BUENOS AIRES") {
                 cargarLocalidades("BUENOS AIRES")
             }
+        }
+
+        item.autoCompleteProvincia.doAfterTextChanged {
+            if (item.autoCompleteProvincia.hasFocus()) {
+                item.autoCompleteProvincia.tag = null
+                item.autoCompleteLocalidad.setText("", false)
+                item.autoCompleteLocalidad.tag = null
+            }
+            actualizarResumen()
         }
 
         // Configuración de botón Volver Arriba
@@ -477,7 +549,11 @@ class InfractorFragment : Fragment() {
 
         item.autoCompleteProvincia.setOnItemClickListener { parent, _, position, _ ->
             val provSeleccionada = parent.getItemAtPosition(position).toString().uppercase()
+            val objetoProvincia = actaViewModel.todasLasProvincias.value?.find { it.nombre.equals(provSeleccionada, ignoreCase = true) }
+            item.autoCompleteProvincia.tag = objetoProvincia?.id
+            
             item.autoCompleteLocalidad.setText("", false)
+            item.autoCompleteLocalidad.tag = null
             cargarLocalidades(provSeleccionada)
             actualizarResumen()
             // Al seleccionar provincia, pasar foco a localidad
@@ -485,17 +561,19 @@ class InfractorFragment : Fragment() {
             (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown()
         }
 
-        // 3. Configuración de LOCALIDADES (Combo dinámico)
-        item.autoCompleteLocalidad.setOnClickListener { (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown() }
-        item.autoCompleteLocalidad.setOnFocusChangeListener { view, hasFocus ->
-            if (hasFocus) {
-                (item.autoCompleteLocalidad as? AutoCompleteTextView)?.showDropDown()
-                ejecutarAutoScroll(view)
-                view.setBackgroundResource(R.drawable.bg_edittext_focused)
-            } else {
-                view.setBackgroundResource(0)
+        // 3. Configuración de LOCALIDADES (Combo dinámico - Editable)
+        item.autoCompleteLocalidad.keyListener = android.text.method.TextKeyListener.getInstance()
+        item.autoCompleteLocalidad.filters = arrayOf(autoFilterUpper)
+        item.autoCompleteLocalidad.threshold = 1
+
+        item.autoCompleteLocalidad.doAfterTextChanged {
+            // Si el usuario cambia el texto manualmente, el ID del catálogo ya no es válido
+            if (item.autoCompleteLocalidad.hasFocus()) {
+                item.autoCompleteLocalidad.tag = null
             }
+            actualizarResumen()
         }
+
         item.autoCompleteLocalidad.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
                 item.etCP.requestFocus()
@@ -505,12 +583,31 @@ class InfractorFragment : Fragment() {
 
         item.autoCompleteLocalidad.setOnItemClickListener { parent, _, position, _ ->
             val locSeleccionada = parent.getItemAtPosition(position).toString().uppercase()
-            if (locSeleccionada.equals("CHIVILCOY", ignoreCase = true)) {
-                item.etCP.setText("6620")
+            
+            lifecycleScope.launch {
+                val provinciaId = (item.autoCompleteProvincia.tag as? Int) ?: 0
+                val dao = AppDatabase.getDatabase(requireContext()).catalogoDao()
+                val localidades = dao.obtenerLocalidadesPorProvincia(provinciaId)
+                val objetoLocalidad = localidades.find { it.nombre.equals(locSeleccionada, ignoreCase = true) }
+                
+                if (objetoLocalidad != null) {
+                    item.autoCompleteLocalidad.tag = objetoLocalidad.id
+                    
+                    // 🚀 BUSQUEDA DINÁMICA DE CP
+                    val cps = dao.obtenerCpostalPorLocalidad(objetoLocalidad.id)
+                    if (cps.isNotEmpty()) {
+                        item.etCP.setText(cps.first().codigo)
+                    } else if (locSeleccionada.equals("CHIVILCOY", ignoreCase = true)) {
+                        item.etCP.setText("6620")
+                    }
+                } else if (locSeleccionada.equals("CHIVILCOY", ignoreCase = true)) {
+                    item.etCP.setText("6620")
+                }
+                
+                actualizarResumen()
+                // Al seleccionar localidad, pasar foco a CP
+                item.etCP.requestFocus()
             }
-            actualizarResumen()
-            // Al seleccionar localidad, pasar foco a CP
-            item.etCP.requestFocus()
         }
 
         item.etCP.setOnEditorActionListener { _, actionId, _ ->
@@ -534,19 +631,28 @@ class InfractorFragment : Fragment() {
             item.etLicencia to null,
             item.etCalle to null,
             item.etCalleNro to null,
+            item.autoCompletePais to null,
             item.autoCompleteProvincia to null,
             item.autoCompleteLocalidad to null,
             item.etCP to null
         )
 
         inputs.forEach { (editText, target) ->
+            // Restaurar click para mostrar dropdown si es AutoComplete
+            if (editText is AutoCompleteTextView) {
+                editText.setOnClickListener { 
+                    if (!editText.isPopupShowing) editText.showDropDown() 
+                }
+            }
+
             editText.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    // Mostrar dropdown si es un AutoComplete
                     (view as? AutoCompleteTextView)?.showDropDown()
 
-                    if (!editText.text.isNullOrEmpty()) {
-                        editText.selectAll()
+                    if (editText.text.isNotEmpty()) {
+                        editText.post {
+                            editText.selectAll()
+                        }
                     }
                     ejecutarAutoScroll(target ?: view)
                     view.setBackgroundResource(R.drawable.bg_edittext_focused)
@@ -601,9 +707,13 @@ class InfractorFragment : Fragment() {
                     nroLicencia = item.etLicencia.text.toString(),
                     calle = item.etCalle.text.toString(),
                     altura = item.etCalleNro.text.toString(),
+                    pais = item.autoCompletePais.text.toString(),
                     provincia = item.autoCompleteProvincia.text.toString(),
                     localidad = item.autoCompleteLocalidad.text.toString(),
-                    cp = item.etCP.text.toString()
+                    cp = item.etCP.text.toString(),
+                    idPais = (item.autoCompletePais.tag as? Int),
+                    idProvincia = (item.autoCompleteProvincia.tag as? Int),
+                    idLocalidad = (item.autoCompleteLocalidad.tag as? Int)
                 )
                 nuevosDatosMap[rolOriginal] = persona
             }
@@ -620,7 +730,11 @@ class InfractorFragment : Fragment() {
                 actaViewModel.calleInfractor = primeraPersona.calle
                 actaViewModel.alturaInfractor = primeraPersona.altura
                 actaViewModel.provinciaInfractor = primeraPersona.provincia
+                actaViewModel.idProvinciaInfractor = primeraPersona.idProvincia
+                actaViewModel.paisInfractor = primeraPersona.pais
+                actaViewModel.idPaisInfractor = primeraPersona.idPais
                 actaViewModel.localidadInfractor = primeraPersona.localidad
+                actaViewModel.idLocalidadInfractor = primeraPersona.idLocalidad
                 actaViewModel.cpInfractor = primeraPersona.cp
             }
         } else {
@@ -633,6 +747,8 @@ class InfractorFragment : Fragment() {
             actaViewModel.nroLicencia = ""
             actaViewModel.calleInfractor = ""
             actaViewModel.alturaInfractor = ""
+            actaViewModel.idProvinciaInfractor = null
+            actaViewModel.idLocalidadInfractor = null
         }
     }
 
@@ -673,6 +789,48 @@ class InfractorFragment : Fragment() {
         } catch (e: Exception) {
             Log.e("SCANNER", "Error al parsear DNI: ${e.message}")
             Toast.makeText(requireContext(), "Error al leer datos del DNI", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
         }
     }
 }

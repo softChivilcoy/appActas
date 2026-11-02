@@ -8,6 +8,7 @@ enum class TipoOrigenItem {
 data class ItemHojaRuta(
     val id: Long,
     val titulo: String,         // "ORDEN #1024" o "BORRADOR #12"
+    val nroActa: String? = null, // 🚀 AGREGADO: Número de acta real (ej: E-0001-00000001)
     val calle: String,
     val altura: String,
     val motivo: String,

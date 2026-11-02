@@ -28,8 +28,14 @@ interface CatalogoDao {
     @Query("DELETE FROM local_tipo_provincias")
     suspend fun vaciarProvincias()
 
+    @Query("DELETE FROM local_paises")
+    suspend fun vaciarPaises()
+
     @Query("DELETE FROM local_tipo_localidades")
     suspend fun vaciarLocalidades()
+
+    @Query("DELETE FROM local_tipo_cpostales")
+    suspend fun vaciarCpostal()
 
     @Query("DELETE FROM local_tipos_actas")
     suspend fun vaciarActas()
@@ -70,7 +76,13 @@ interface CatalogoDao {
     suspend fun insertarProvincias(lista: List<TipoProvinciaEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarPaises(lista: List<PaisEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarLocalidades(lista: List<TipoLocalidadEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarCpostales(lista: List<TipoCpostalEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarActas(lista: List<TipoActaEntity>)
@@ -99,7 +111,9 @@ interface CatalogoDao {
         marcas: List<TipoMarcaEntity>,
         modelos: List<TipoModeloEntity>,
         provincias: List<TipoProvinciaEntity>,
+        paises: List<PaisEntity>,
         localidades: List<TipoLocalidadEntity>,
+        cpostales: List<TipoCpostalEntity>,
         actas: List<TipoActaEntity>,
         quincenas: List<QuincenaEntity>,
         categorias: List<CategoriaEntity>,
@@ -115,7 +129,9 @@ interface CatalogoDao {
         vaciarMarcas()
         vaciarModelos()
         vaciarProvincias()
+        vaciarPaises()
         vaciarLocalidades()
+        vaciarCpostal()
         vaciarActas()
         vaciarQuincenas()
         vaciarCategorias()
@@ -130,7 +146,9 @@ interface CatalogoDao {
         insertarMarcas(marcas)
         insertarModelos(modelos)
         insertarProvincias(provincias)
+        insertarPaises(paises)
         insertarLocalidades(localidades)
+        insertarCpostales(cpostales)
         insertarActas(actas)
         insertarQuincenas(quincenas)
         insertarCategorias(categorias)
@@ -159,10 +177,19 @@ interface CatalogoDao {
     suspend fun obtenerModelosPorMarca(marcaId: Int): List<TipoModeloEntity>
 
     @Query("SELECT * FROM local_tipo_provincias ORDER BY nombre ASC")
-    suspend fun obtenerProvincias(): List<TipoProvinciaEntity> // O como se llame tu entidad de provincias
+    suspend fun obtenerProvincias(): List<TipoProvinciaEntity>
+
+    @Query("SELECT * FROM local_tipo_provincias WHERE paisId = :paisId ORDER BY nombre ASC")
+    suspend fun obtenerProvinciasPorPais(paisId: Int): List<TipoProvinciaEntity>
+
+    @Query("SELECT * FROM local_paises ORDER BY nombre ASC")
+    suspend fun obtenerPaises(): List<PaisEntity>
 
     @Query("SELECT * FROM local_tipo_localidades WHERE provinciaid = :provinciaId ORDER BY nombre ASC")
     suspend fun obtenerLocalidadesPorProvincia(provinciaId: Int): List<TipoLocalidadEntity>
+
+    @Query("SELECT * FROM local_tipo_cpostales WHERE localidadId = :localidadId ORDER BY codigo ASC")
+    suspend fun obtenerCpostalPorLocalidad(localidadId: Int): List<TipoCpostalEntity>
 
     @Query("SELECT * FROM local_tipos_actas")
     suspend fun obtenerTodosLosTiposActa(): List<TipoActaEntity>

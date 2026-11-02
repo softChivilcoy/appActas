@@ -6,17 +6,39 @@ import androidx.recyclerview.widget.RecyclerView
 import com.chivilcoyactas.databinding.ItemHojaRutaBinding
 
 class HojaRutaAdapter(
-    private val items: List<ItemHojaRuta>,
+    private var items: List<ItemHojaRuta>,
     private val onItemClick: (ItemHojaRuta) -> Unit
 ) : RecyclerView.Adapter<HojaRutaAdapter.HojaRutaViewHolder>() {
+
+    private var itemsFull: List<ItemHojaRuta> = ArrayList(items)
+
+    fun updateData(newItems: List<ItemHojaRuta>) {
+        items = newItems
+        itemsFull = ArrayList(newItems)
+        notifyDataSetChanged()
+    }
+
+    fun filtrar(texto: String) {
+        val query = texto.lowercase().trim()
+        items = if (query.isEmpty()) {
+            itemsFull
+        } else {
+            itemsFull.filter {
+                it.nroActa?.lowercase()?.contains(query) == true ||
+                it.fecha.lowercase().contains(query) ||
+                it.infractorNombre.lowercase().contains(query) ||
+                it.calle.lowercase().contains(query)
+            }
+        }
+        notifyDataSetChanged()
+    }
 
     inner class HojaRutaViewHolder(private val binding: ItemHojaRutaBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: ItemHojaRuta) {
             // Asignación de datos a los campos de item_hoja_ruta.xml
-            binding.tvIdActaPrevia.text = item.titulo
-            binding.tvEstado.text = item.estadoTexto
+            binding.tvNroActaItem.text = item.nroActa ?: ""
 
             val direccionCompleta = if (item.altura.isNotBlank()) {
                 "${item.calle} ${item.altura}"
@@ -26,6 +48,7 @@ class HojaRutaAdapter(
             binding.tvDireccionHoja.text = direccionCompleta
 
             binding.tvMotivoHoja.text = item.motivo
+            binding.tvInfractorHoja.text = if (item.infractorNombre.isNotBlank()) "Persona: ${item.infractorNombre}" else ""
             binding.tvFechaHoja.text = item.fecha
 
             // Evento de clic al seleccionar la tarjeta

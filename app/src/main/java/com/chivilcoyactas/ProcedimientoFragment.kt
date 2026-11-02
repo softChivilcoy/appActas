@@ -7,8 +7,8 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.GridLayout
+import android.widget.*
+import android.widget.Filter
 import com.google.android.material.button.MaterialButton
 import android.widget.EditText
 import android.widget.Toast
@@ -36,6 +36,9 @@ class ProcedimientoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Estándar 3nStar: Foco inicial en el root para evitar teclado automático y validaciones prematuras
+        binding.rootProcedimiento.requestFocus()
+
         // Forzar scroll al inicio al entrar o volver
         binding.scrollProcedimiento.post {
             binding.scrollProcedimiento.scrollTo(0, 0)
@@ -62,18 +65,27 @@ class ProcedimientoFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val db = AppDatabase.getDatabase(requireContext())
 
-            // 1. Cargar las categorías de la base de datos (o sembrar si está vacía)
+            // 0. Sincronizar categoriasSeleccionadas desde el String procTipoInmueble (Importante para Borradores)
+            if (actaViewModel.categoriasSeleccionadas.isEmpty() && actaViewModel.procTipoInmueble.isNotEmpty()) {
+                val categoriasGuardadas = actaViewModel.procTipoInmueble
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                actaViewModel.categoriasSeleccionadas.addAll(categoriasGuardadas)
+            }
+
+            // 1. Cargar las categorías de la base de datos
             if (actaViewModel.catalogoCategorias.isEmpty()) {
                 var categoriasDb = db.catalogoDao().obtenerTodasLasCategorias()
 
                 if (categoriasDb.isEmpty()) {
                     val categoriasSemilla = listOf(
-                        CategoriaEntity(nombre = "Baldío"),
-                        CategoriaEntity(nombre = "Comercio / Local"),
-                        CategoriaEntity(nombre = "Higiene Urbana"),
-                        CategoriaEntity(nombre = "Obra en Construcción"),
-                        CategoriaEntity(nombre = "Vereda / Terreno"),
-                        CategoriaEntity(nombre = "Vía Pública / Ruidos")
+                        CategoriaEntity(id = 1, nombre = "Baldío"),
+                        CategoriaEntity(id = 2, nombre = "Comercio / Local"),
+                        CategoriaEntity(id = 3, nombre = "Higiene Urbana"),
+                        CategoriaEntity(id = 4, nombre = "Obra en Construcción"),
+                        CategoriaEntity(id = 5, nombre = "Vereda / Terreno"),
+                        CategoriaEntity(id = 6, nombre = "Vía Pública / Ruidos")
                     )
                     db.catalogoDao().insertarCategorias(categoriasSemilla)
                     categoriasDb = db.catalogoDao().obtenerTodasLasCategorias()
@@ -81,22 +93,37 @@ class ProcedimientoFragment : Fragment() {
                 actaViewModel.catalogoCategorias = categoriasDb
             }
 
-            // 2. Renderizar dinámicamente los Chips de Categoría
+            // 2. Sincronizar IDs a Nombres si es necesario (para compatibilidad con el servidor/borradores)
+            val seleccionadasActuales = actaViewModel.categoriasSeleccionadas.toList()
+            actaViewModel.categoriasSeleccionadas.clear()
+            seleccionadasActuales.forEach { sel ->
+                val selLimpia = sel.replace(" ", "")
+                // Buscamos si el String guardado es un número que coincida con un ID
+                val catEncontradaPorId = actaViewModel.catalogoCategorias.find { it.id.toString() == selLimpia }
+                // O si el nombre normalizado coincide
+                val catEncontradaPorNombre = actaViewModel.catalogoCategorias.find { normalizarTexto(it.nombre) == normalizarTexto(sel) }
+                
+                val nombreFinal = catEncontradaPorId?.nombre ?: catEncontradaPorNombre?.nombre ?: sel
+                if (!actaViewModel.categoriasSeleccionadas.contains(nombreFinal)) {
+                    actaViewModel.categoriasSeleccionadas.add(nombreFinal)
+                }
+            }
+
+            // 3. Renderizar dinámicamente los Chips de Categoría
             renderizarCategoriasChips(actaViewModel.catalogoCategorias)
 
-            // 3. Configurar el Spinner de Acciones (Tipos de Acta)
-            //if (actaViewModel.listaTiposActaDisponibles.isEmpty()) {
+            // 3. Configurar el Spinner de Acciones (Catálogo completo de la DB)
             val actasDb = db.catalogoDao().obtenerTodosLosTiposActa()
+
             if (actasDb.isNotEmpty()) {
                 actaViewModel.listaTiposActaDisponibles = actasDb.map {
                     TipoActaDto(
                         id = it.id,
                         nombre = it.nombre,
-                        requiereFaltas = it.requiereFaltas // 👈 Aseguramos que se mapee aquí
+                        requiereFaltas = it.requiereFaltas
                     )
                 }
             }
-            //}
             setupSpinnerAcciones()
 
             // 4. Volcar y recuperar los datos en los controles de la vista
@@ -161,8 +188,13 @@ class ProcedimientoFragment : Fragment() {
 
         if (tiposActaInspeccion.isNotEmpty()) {
             val nombresAcciones = tiposActaInspeccion.map { it.nombre }
-            val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, nombresAcciones)
+            
+            // 🚀 ADAPTER PERSONALIZADO CON FILTRO COMPLETO (El límite se da por la altura del scroll)
+            val adapter = crearAdapterLimitado(nombresAcciones)
             binding.spinnerAccion.setAdapter(adapter)
+
+            // Limitar la altura del dropdown para mostrar ~4.5 items y habilitar scroll
+            binding.spinnerAccion.dropDownHeight = (200 * resources.displayMetrics.density).toInt()
 
             binding.spinnerAccion.setOnItemClickListener { parent, _, position, _ ->
                 val nombreSeleccionado = parent.getItemAtPosition(position).toString()
@@ -188,6 +220,7 @@ class ProcedimientoFragment : Fragment() {
                     binding.spinnerAccion.post {
                         binding.spinnerAccion.selectAll()
                     }
+                    binding.spinnerAccion.showDropDown()
                     ejecutarAutoScroll(binding.spinnerAccion)
                     v.setBackgroundResource(R.drawable.bg_edittext_focused)
                 } else {
@@ -257,11 +290,6 @@ class ProcedimientoFragment : Fragment() {
                 maxLines = 2
                 gravity = android.view.Gravity.CENTER
                 
-                // 🔹 Verificación flexible para marcar el chip recuperado
-                isChecked = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
-                    normalizarTexto(seleccionada) == normalizarTexto(nombreLimpio)
-                }
-
                 addOnCheckedChangeListener { view, isChecked ->
                     if (isChecked) {
                         // 1. Desmarcar visualmente los otros (Selección única)
@@ -280,6 +308,14 @@ class ProcedimientoFragment : Fragment() {
                     actualizarVisibilidadCatastro()
                 }
 
+                // 🔹 Verificación flexible para marcar el chip recuperado (Por ID o por Nombre)
+                // Se setea DESPUÉS del listener para que se dispare la lógica de visibilidad inicial
+                isChecked = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
+                    val esMismoNombre = normalizarTexto(seleccionada) == normalizarTexto(nombreLimpio)
+                    val esMismoId = seleccionada == categoria.id.toString()
+                    esMismoNombre || esMismoId
+                }
+
                 // 🚀 LayoutParams para GridLayout: 2 columnas de igual ancho
                 val params = GridLayout.LayoutParams(
                     GridLayout.spec(GridLayout.UNDEFINED, GridLayout.FILL), // row spec
@@ -296,9 +332,12 @@ class ProcedimientoFragment : Fragment() {
         actualizarVisibilidadCatastro()
     }
 
-    // Función auxiliar para comparar nombres de categorías de forma segura
+    // Función auxiliar para comparar nombres de categorías de forma ultra-segura (quita acentos, espacios y símbolos)
     private fun normalizarTexto(texto: String): String {
-        return texto.trim().replace("\\s+".toRegex(), " ").lowercase()
+        return texto.lowercase()
+            .replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+            .replace('ü', 'u').replace('ñ', 'n')
+            .replace("[^a-z0-9]".toRegex(), "")
     }
 
     private fun actualizarVisibilidadCatastro() {
@@ -306,12 +345,13 @@ class ProcedimientoFragment : Fragment() {
         val categoriasCatastro = listOf("Baldío", "Comercio / Local", "Higiene Urbana", "Obra en Construcción", "Vereda / Terreno", "Vía Pública / Ruidos")
 
         val mostrarCatastro = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
-            categoriasCatastro.any { it.equals(seleccionada.trim(), ignoreCase = true) }
+            val selNorm = normalizarTexto(seleccionada)
+            categoriasCatastro.any { normalizarTexto(it) == selNorm }
         }
         binding.cardCatastro.visibility = if (mostrarCatastro) View.VISIBLE else View.GONE
 
-        val mostrarComercio = actaViewModel.categoriasSeleccionadas.any {
-            it.trim().equals("Comercio / Local", ignoreCase = true)
+        val mostrarComercio = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
+            normalizarTexto(seleccionada) == normalizarTexto("Comercio / Local")
         }
 
         val estabaOcultoComercio = binding.cardComercio.visibility == View.GONE
@@ -359,7 +399,7 @@ class ProcedimientoFragment : Fragment() {
             binding.etChacraNro, binding.etChacraLet,
             binding.etQuintaNro, binding.etQuintaLet, binding.etFraccionNro, binding.etFraccionLet,
             binding.etManzanaNro, binding.etManzanaLet, binding.etParcelaNro, binding.etParcelaLet,
-            binding.etSubparcela, binding.etUF,
+            binding.etSubparcelaNro, binding.etSubparcelaLet, binding.etUf,
             // Referencia Acta
             binding.etRefActa
         )
@@ -367,6 +407,7 @@ class ProcedimientoFragment : Fragment() {
         inputs.forEach { editText ->
             editText.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
+                    (view as? EditText)?.selectAll()
                     ejecutarAutoScroll(view)
                     view.setBackgroundResource(R.drawable.bg_edittext_focused)
                 } else {
@@ -387,8 +428,8 @@ class ProcedimientoFragment : Fragment() {
 
             try {
                 binding.scrollProcedimiento.offsetDescendantRectToMyCoords(parentInput, rect)
-                // Scrolleamos para que el campo quede en la parte superior con un margen generoso (80dp)
-                val margin = (80 * resources.displayMetrics.density).toInt()
+                // Scrolleamos para que el campo quede en la parte superior con un margen generoso (90dp)
+                val margin = (90 * resources.displayMetrics.density).toInt()
                 val scrollY = (rect.top - margin).coerceAtLeast(0)
                 binding.scrollProcedimiento.smoothScrollTo(0, scrollY)
             } catch (e: Exception) {
@@ -397,26 +438,32 @@ class ProcedimientoFragment : Fragment() {
         }, 500) // Delay estandarizado de 500ms
     }
     private fun recuperarDatos() {
-        // 1. Sincronizar ID si solo tenemos el texto
-        if (actaViewModel.idTipoActaSeleccionada == null && actaViewModel.procAccion.isNotEmpty()) {
-            actaViewModel.idTipoActaSeleccionada = actaViewModel.listaTiposActaDisponibles.find {
-                it.nombre.trim().equals(actaViewModel.procAccion.trim(), ignoreCase = true)
-            }?.id
+        // 1. Sincronizar ID si solo tenemos el texto o viceversa
+        val idActual = actaViewModel.idTipoActaSeleccionada
+        val nombreActual = actaViewModel.procAccion
+
+        if (idActual != null) {
+            val tipoPorId = actaViewModel.listaTiposActaDisponibles.find { it.id == idActual }
+            if (tipoPorId != null) {
+                actaViewModel.procAccion = tipoPorId.nombre
+                binding.spinnerAccion.setText(tipoPorId.nombre, false)
+            }
+        } else if (nombreActual.isNotEmpty()) {
+            val tipoPorNombre = actaViewModel.listaTiposActaDisponibles.find { it.nombre.equals(nombreActual, ignoreCase = true) }
+            if (tipoPorNombre != null) {
+                actaViewModel.idTipoActaSeleccionada = tipoPorNombre.id
+                binding.spinnerAccion.setText(tipoPorNombre.nombre, false)
+            }
         }
 
-        // 2. Seteamos el texto en el Spinner según el ID o el texto guardado
-        val tipoActual = actaViewModel.listaTiposActaDisponibles.find { it.id == actaViewModel.idTipoActaSeleccionada }
-        if (tipoActual != null) {
-            binding.spinnerAccion.setText(tipoActual.nombre, false)
-        }
-
-        // 3. Forzamos la sincronización de los botones tildados físicamente en las vistas
+        // 4. Forzamos la sincronización de los botones tildados físicamente en las vistas
         for (i in 0 until binding.containerCategorias.childCount) {
             val child = binding.containerCategorias.getChildAt(i)
             if (child is MaterialButton) {
                 val nombreBoton = child.text.toString()
-                val estaMarcado = actaViewModel.categoriasSeleccionadas.any {
-                    normalizarTexto(it) == normalizarTexto(nombreBoton)
+                val estaMarcado = actaViewModel.categoriasSeleccionadas.any { seleccionada ->
+                    normalizarTexto(seleccionada) == normalizarTexto(nombreBoton) ||
+                    seleccionada == (actaViewModel.catalogoCategorias.find { it.nombre == nombreBoton }?.id?.toString() ?: "")
                 }
                 child.isChecked = estaMarcado
             }
@@ -441,8 +488,9 @@ class ProcedimientoFragment : Fragment() {
         binding.etManzanaLet.setText(actaViewModel.catManzanaLet)
         binding.etParcelaNro.setText(actaViewModel.catParcelaNro)
         binding.etParcelaLet.setText(actaViewModel.catParcelaLet)
-        binding.etSubparcela.setText(actaViewModel.catSubparcela)
-        binding.etUF.setText(actaViewModel.catUF)
+        binding.etSubparcelaNro.setText(actaViewModel.catSubparcelaNro)
+        binding.etSubparcelaLet.setText(actaViewModel.catSubparcelaLet)
+        binding.etUf.setText(actaViewModel.catUF)
         binding.etPartidaMunicipal.setText(actaViewModel.catPartidaMunicipal)
 
         actualizarVisibilidadCatastro()
@@ -485,13 +533,56 @@ class ProcedimientoFragment : Fragment() {
         actaViewModel.catManzanaLet = binding.etManzanaLet.text.toString().trim()
         actaViewModel.catParcelaNro = binding.etParcelaNro.text.toString().trim()
         actaViewModel.catParcelaLet = binding.etParcelaLet.text.toString().trim()
-        actaViewModel.catSubparcela = binding.etSubparcela.text.toString().trim()
-        actaViewModel.catUF = binding.etUF.text.toString().trim()
+        actaViewModel.catSubparcelaNro = binding.etSubparcelaNro.text.toString().trim()
+        actaViewModel.catSubparcelaLet = binding.etSubparcelaLet.text.toString().trim()
+        actaViewModel.catUF = binding.etUf.text.toString().trim()
         actaViewModel.catPartidaMunicipal = binding.etPartidaMunicipal.text.toString().trim()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun crearAdapterLimitado(lista: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_dropdown,
+            lista.toMutableList()
+        ) {
+            private val listaOriginal = ArrayList(lista)
+
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val results = FilterResults()
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+                        
+                        val listaFiltrada = if (query.isEmpty()) {
+                            listaOriginal
+                        } else {
+                            listaOriginal.filter {
+                                it.lowercase().contains(query)
+                            }
+                        }
+                        
+                        results.values = listaFiltrada
+                        results.count = listaFiltrada.size
+                        return results
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        if (results != null && results.count > 0) {
+                            addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        } else {
+                            notifyDataSetInvalidated()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
